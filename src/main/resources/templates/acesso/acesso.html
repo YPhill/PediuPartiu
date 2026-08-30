@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Configurações e recursos utilizados pela página -->
+<head>
+<meta charset="UTF-8">
+<title>Acesso - Pediu, Partiu</title>
+
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+
+<!-- Estrutura principal da tela de acesso -->
+<div class="access-page">
+
+    <div class="access-card">
+
+        <img class="access-logo"
+             th:src="@{/img/logo.png}"
+             alt="Logo Pediu, Partiu">
+
+        <h1>Bem-vindo(a) ao Sistema D’Grill!</h1>
+
+        <p class="subtitle">
+            Selecione abaixo o tipo de acesso desejado.
+        </p>
+
+        <!-- Exibição de mensagens de erro -->
+        <div class="message message-error"
+             th:if="${erro}"
+             th:text="${erro}">
+        </div>
+
+        <!-- Opções de acesso disponíveis no sistema -->
+        <div class="access-grid">
+
+            <!-- Formulário de acesso administrativo -->
+            <form class="access-option"
+                  method="post"
+                  th:action="@{/login}">
+
+                <span class="access-emoji">🧑‍💼</span>
+
+                <h2>ADM</h2>
+
+                <input type="hidden"
+                       name="tipoAcesso"
+                       value="ADM">
+
+                <div class="access-password">
+
+                    <input class="input"
+                           type="password"
+                           name="senha"
+                           placeholder="Digite a senha"
+                           required
+                           autocomplete="off">
+
+                    <button class="btn btn-primary"
+                            type="submit">
+                        Entrar
+                    </button>
+
+                </div>
+
+            </form>
+
+            <!-- Formulário de acesso da cozinha -->
+            <form class="access-option"
+                  method="post"
+                  th:action="@{/login}">
+
+                <span class="access-emoji">👨‍🍳</span>
+
+                <h2>COZINHA</h2>
+
+                <input type="hidden"
+                       name="tipoAcesso"
+                       value="COZINHA">
+
+                <button class="btn btn-primary"
+                        type="submit"
+                        style="margin-top: 14px;">
+                    Entrar
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Arquivo JavaScript principal da aplicação -->
+<script th:src="@{/js/app.js}"></script>
+
+<!-- Controle do envio do formulário utilizando a tecla Enter -->
+<script>
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    const senhaInput = document.querySelector('input[name="senha"]');
+
+    if (senhaInput) {
+
+        senhaInput.addEventListener("keydown", (event) => {
+
+            if (event.key === "Enter") {
+
+                event.preventDefault();
+
+                senhaInput.closest("form").submit();
+            }
+        });
+    }
+});
+
+</script>
+
+</body>
+</html>

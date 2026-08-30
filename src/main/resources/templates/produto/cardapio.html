@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Configurações e recursos utilizados pela página -->
+<head>
+<meta charset="UTF-8">
+<title>Cardápio - Pediu, Partiu</title>
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+
+	<!-- Estrutura principal da página de cardápio -->
+	<div class="page">
+
+		<!-- Cabeçalho e menu de navegação -->
+		<header class="header">
+			<a class="logo-link" th:href="@{/inicio}"> <img class="logo-img"
+				th:src="@{/img/logo.png}" alt="Logo Pediu, Partiu">
+			</a>
+
+			<nav class="nav">
+    <a th:href="@{/inicio}">Início</a>
+
+    <a th:href="@{/pedidos}">Pedidos</a>
+
+    <a th:href="@{/clientes}">Clientes</a>
+
+    <a th:href="@{/cardapio}" class="active">Cardápio</a>
+
+    <a th:href="@{/dashboard}">Dashboards</a>
+
+    <a th:href="@{/sair}"
+       onclick="return confirm('Tem certeza que deseja sair?')">
+       Sair (ADM)
+    </a>
+</nav>
+		</header>
+
+		<main class="content">
+
+			<!-- Título da página e acesso ao cadastro de produtos -->
+			<section class="page-title">
+				<div>
+					<h1>Meu Cardápio</h1>
+					<p class="subtitle">Coleção completa dos itens sensacionais do
+						D’Grill</p>
+				</div>
+
+				<button class="btn btn-primary" type="button"
+					data-modal-target="modalNovoItem">+ Novo Produto</button>
+			</section>
+
+			<!-- Exibição de mensagens de sucesso e erro -->
+			<div class="message message-success" th:if="${sucesso}"
+				th:text="${sucesso}"></div>
+			<div class="message message-error" th:if="${erro}" th:text="${erro}"></div>
+
+			<!-- Área de busca dos produtos -->
+			<form class="search-box" method="get" th:action="@{/cardapio}">
+				<div class="search-row">
+					<input class="input" type="text" name="busca"
+						placeholder="Buscar item pelo nome ou categoria"
+						th:value="${busca}">
+
+					<button class="btn btn-primary" type="submit">Buscar</button>
+
+					<a class="btn btn-soft" th:href="@{/cardapio}"> Limpar Busca </a>
+				</div>
+			</form>
+
+			<!-- Listagem dos produtos cadastrados -->
+			<section class="menu-list">
+
+				<article class="menu-list-item product-card"
+					th:each="produto : ${produtos}">
+
+					<div class="menu-list-icon"
+						th:switch="${produto.categoria.nomeCategoria}">
+
+						<span th:case="'Espetinho Tradicional'">🍖</span> <span
+							th:case="'Espetinho Completo'">🍖</span> <span th:case="'Bebida'">🥤</span>
+
+						<span th:case="'Lanches'">🍔</span> <span th:case="*"></span>
+					</div>
+
+					<div class="menu-list-content">
+						<div class="menu-list-header">
+							<h3 class="product-name" th:text="${produto.nomeProduto}">
+								Nome Produto</h3>
+
+							<span class="tag" th:text="${produto.categoria.nomeCategoria}">
+								Categoria </span>
+						</div>
+
+						<p class="product-description" th:text="${produto.descricao}">
+							Descrição do produto.</p>
+					</div>
+
+					<div class="menu-list-side">
+						<p class="price"
+							th:text="|R$ ${#numbers.formatDecimal(produto.precoUnitario, 1, 'POINT', 2, 'COMMA')}|">
+							R$ 0,00</p>
+
+						<div class="card-actions">
+							<button class="icon-btn" type="button"
+								th:attr="data-modal-target=${'modalEditarItem' + produto.idProduto}">
+								✎</button>
+
+							<form method="post" th:action="@{/cardapio/excluir}"
+								data-confirm-delete>
+								<input type="hidden" name="idProduto"
+									th:value="${produto.idProduto}">
+								<button class="icon-btn" type="submit">🗑</button>
+							</form>
+						</div>
+					</div>
+
+				</article>
+
+			</section>
+		</main>
+
+	</div>
+
+	<!-- Modal utilizado para cadastro de novos produtos -->
+	<div class="modal" id="modalNovoItem">
+		<div class="modal-content">
+			<button class="modal-close" type="button" data-close-modal>×</button>
+
+			<h2>Novo Item Cardápio</h2>
+			<p class="subtitle">Cadastrando um novo item do D’Grill!</p>
+
+			<form class="modal-card" method="post"
+				th:action="@{/cardapio/salvar}">
+				
+				<!-- Dados do novo produto -->
+				<div class="form-group">
+					<p class="label">Nome do item:</p>
+					<input class="input" type="text" name="nomeProduto"
+						placeholder="Insira o nome do item aqui" required>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Categoria:</p>
+
+					<div class="category-select-row">
+						<select class="select" name="idCategoria" data-category-select
+							required>
+							<option value="">Selecione uma categoria</option>
+
+							<option th:each="categoria : ${categorias}"
+								th:value="${categoria.idCategoria}"
+								th:text="${categoria.nomeCategoria}">Categoria</option>
+						</select> <span class="emoji-preview" data-category-emoji></span>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Preço:</p>
+					<input class="input" type="number" name="precoUnitario" step="0.01"
+						min="0.01" placeholder="Insira o preço do item aqui" required>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Descrição:</p>
+					<textarea class="textarea" name="descricao"
+						placeholder="Insira os ingredientes do item aqui"></textarea>
+				</div>
+
+				<button class="btn btn-soft" type="submit">Salvar</button>
+			</form>
+		</div>
+	</div>
+
+	<!-- Modal utilizado para edição dos produtos cadastrados -->
+	<div class="modal" th:each="produto : ${produtos}"
+		th:id="${'modalEditarItem' + produto.idProduto}">
+		<div class="modal-content">
+			<button class="modal-close" type="button" data-close-modal>×</button>
+
+			<h2>Editando Item</h2>
+			<p class="subtitle">Você está editando as informações de um item
+				do cardápio ;)</p>
+
+			<form class="modal-card" method="post"
+				th:action="@{/cardapio/atualizar}">
+				
+				<input type="hidden" name="idProduto"
+					th:value="${produto.idProduto}">
+
+				<!-- Dados do produto em edição -->
+				<div class="form-group">
+					<p class="label">Nome do item:</p>
+					<input class="input" type="text" name="nomeProduto"
+						th:value="${produto.nomeProduto}" required>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Categoria:</p>
+
+					<div class="category-select-row">
+						<select class="select" name="idCategoria" data-category-select
+							required>
+							<option th:each="categoria : ${categorias}"
+								th:value="${categoria.idCategoria}"
+								th:text="${categoria.nomeCategoria}"
+								th:selected="${produto.categoria.idCategoria == categoria.idCategoria}">
+								Categoria</option>
+						</select> <span class="emoji-preview" data-category-emoji></span>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Preço:</p>
+					<input class="input" type="number" name="precoUnitario" step="0.01"
+						min="0.01" th:value="${produto.precoUnitario}" required>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Descrição:</p>
+					<textarea class="textarea" name="descricao"
+						th:text="${produto.descricao}"></textarea>
+				</div>
+
+				<div class="modal-actions">
+					<button class="btn btn-danger" type="button" data-close-modal>
+						Cancelar</button>
+
+					<button class="btn btn-soft" type="submit">Salvar</button>
+				</div>
+			</form>
+		</div>
+	</div>
+
+	<!-- Arquivo JavaScript principal da aplicação -->
+	<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

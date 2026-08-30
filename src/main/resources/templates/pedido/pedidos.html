@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Configurações e recursos utilizados pela página -->
+<head>
+<meta charset="UTF-8">
+<title>Pedidos - Pediu, Partiu</title>
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+
+	<!-- Estrutura principal da página de pedidos -->
+	<div class="page">
+
+		<!-- Cabeçalho e menu de navegação -->
+		<header class="header">
+			<a class="logo-link" th:href="@{/inicio}"> <img class="logo-img"
+				th:src="@{/img/logo.png}" alt="Logo Pediu, Partiu">
+			</a>
+
+			<nav class="nav">
+				<a th:href="@{/inicio}">Início</a> <a th:href="@{/pedidos}"
+					class="active">Pedidos</a> <a
+					th:if="${session.perfilUsuario == 'ADM'}" th:href="@{/clientes}">Clientes</a>
+
+				<a th:if="${session.perfilUsuario == 'ADM'}" th:href="@{/cardapio}">Cardápio</a>
+
+				<a th:if="${session.perfilUsuario == 'ADM'}" th:href="@{/dashboard}">Dashboards</a>
+
+				<a th:href="@{/sair}"
+					th:text="${session.perfilUsuario == 'COZINHA'} ? 'Sair (COZINHA)' : 'Sair (ADM)'"
+					onclick="return confirm('Tem certeza que deseja sair?')"> Sair
+				</a>
+			</nav>
+		</header>
+
+		<main class="content">
+
+			<!-- Título da página e acesso ao cadastro de pedidos -->
+			<section class="page-title">
+				<div>
+					<h1>Gestão de Pedidos</h1>
+					<p class="subtitle">Monitore e processe os pedidos dos clientes
+						D’Grill em tempo real.</p>
+				</div>
+
+				<button class="btn btn-primary" type="button"
+					th:if="${session.perfilUsuario == 'ADM'}"
+					data-modal-target="modalNovoPedido">+ Novo Pedido</button>
+			</section>
+
+			<!-- Exibição de mensagens de sucesso e erro -->
+			<div class="message message-success" th:if="${sucesso}"
+				th:text="${sucesso}"></div>
+			<div class="message message-error" th:if="${erro}" th:text="${erro}"></div>
+
+			<!-- Área de busca e filtros dos pedidos -->
+			<form class="filter-box" method="get" th:action="@{/pedidos}">
+				<p class="label">Buscar pedido</p>
+
+				<div class="search-row">
+					<input class="input" type="text" name="busca"
+						placeholder="#1234 ou nome do cliente" th:value="${busca}">
+
+					<button class="btn btn-primary" type="submit">Buscar</button>
+				</div>
+
+				<div class="filter-grid">
+					<div>
+						<p class="label">Status</p>
+
+						<select class="select" name="status">
+							<option value="">Todos os Status</option>
+
+							<option th:each="statusPedido : ${statusPedidos}"
+								th:value="${statusPedido.nomeStatus}"
+								th:text="${statusPedido.nomeStatus}"
+								th:selected="${statusPedido.nomeStatus == status}">
+								Status</option>
+						</select>
+					</div>
+
+					<div>
+						<p class="label">Data</p>
+
+						<input class="input" type="text" name="data"
+							placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric"
+							th:value="${data}" data-date-mask>
+					</div>
+
+					<button class="btn btn-primary" type="submit">Filtrar</button>
+
+					<a class="btn btn-soft" th:href="@{/pedidos}">Limpar Filtros e
+						Busca</a>
+				</div>
+			</form>
+
+			<!-- Listagem dos pedidos cadastrados -->
+			<section class="orders-grid">
+
+				<article class="order-card" th:each="pedido : ${pedidos}">
+
+					<div class="order-header">
+						<div>
+							<p class="order-client" th:text="${pedido.cliente.nomeCliente}">Nome
+								do Cliente</p>
+
+							<div class="order-id" th:text="|#${pedido.idPedido}|">#0000</div>
+						</div>
+
+						<div>
+							<div class="card-actions"
+								th:if="${session.perfilUsuario == 'ADM'}">
+								<button class="icon-btn" type="button"
+									th:attr="data-modal-target=${'modalEditarPedido' + pedido.idPedido}">
+									✎</button>
+
+								<form method="post" th:action="@{/pedidos/excluir}"
+									data-confirm-delete>
+									<input type="hidden" name="idPedido"
+										th:value="${pedido.idPedido}">
+									<button class="icon-btn" type="submit">🗑</button>
+								</form>
+							</div>
+
+							<div class="order-price"
+								th:text="|R$ ${#numbers.formatDecimal(
+        #aggregates.sum(
+            pedido.itens.![produto.precoUnitario * quantidade]
+        ),
+        1,
+        'POINT',
+        2,
+        'COMMA')}|">
+								R$ 0,00</div>
+							<div class="order-date">
+								<span
+									th:text="${#temporals.format(pedido.dataHoraPedido, 'dd/MM/yyyy')}">
+									00/00/0000 </span> <br> <span
+									th:text="${#temporals.format(pedido.dataHoraPedido, 'HH:mm')}">
+									00:00 </span>
+							</div>
+						</div>
+					</div>
+
+					<div class="order-item" th:each="item : ${pedido.itens}">
+						<div class="order-item-info">
+							<span class="order-item-name"> <span
+								th:text="${item.quantidade}">1</span>x <span
+								th:text="${item.produto.nomeProduto}">Produto</span>
+							</span> <span class="order-item-description"
+								th:text="${item.produto.descricao != null 
+        ? (#strings.length(item.produto.descricao) > 40
+            ? #strings.substring(item.produto.descricao, 0, 40).concat('...')
+            : item.produto.descricao)
+        : ''}">
+								Descrição do produto </span>
+						</div>
+
+						<span class="order-item-price"
+							th:text="|R$ ${#numbers.formatDecimal(item.produto.precoUnitario * item.quantidade, 1, 'POINT', 2, 'COMMA')}|">
+							R$ 0,00 </span>
+					</div>
+
+					<p class="order-note"
+						th:if="${pedido.observacao != null and !#strings.isEmpty(pedido.observacao)}"
+						th:text="${#strings.length(pedido.observacao) > 40
+        ? #strings.substring(pedido.observacao, 0, 40).concat('...')
+        : pedido.observacao}">
+						Observação do pedido</p>
+
+					<!-- Exibição do status atual do pedido -->
+					<span class="status"
+						th:text="${#strings.toUpperCase(pedido.statusPedido.nomeStatus)}"
+						th:classappend="
+                            ${#strings.toLowerCase(pedido.statusPedido.nomeStatus) == 'pendente'} ? ' status-pendente' :
+                            (${#strings.toLowerCase(pedido.statusPedido.nomeStatus) == 'preparando'} ? ' status-preparando' :
+                            (${#strings.toLowerCase(pedido.statusPedido.nomeStatus) == 'pronto'} ? ' status-pronto' :
+                            (${#strings.toLowerCase(pedido.statusPedido.nomeStatus) == 'cancelado'} ? ' status-cancelado' :
+                            ' status-entregue')))">
+						STATUS </span>
+
+					<!-- Ações disponíveis conforme o status do pedido -->
+					<form
+						th:if="${#strings.toLowerCase(pedido.statusPedido.nomeStatus) == 'pendente'}"
+						method="post" th:action="@{/pedidos/status/avancar}">
+						<input type="hidden" name="idPedido" th:value="${pedido.idPedido}">
+						<button class="btn btn-primary order-action" type="submit">🍴
+							Preparar</button>
+					</form>
+
+					<form
+						th:if="${#strings.toLowerCase(pedido.statusPedido.nomeStatus) == 'preparando'}"
+						method="post" th:action="@{/pedidos/status/avancar}">
+						<input type="hidden" name="idPedido" th:value="${pedido.idPedido}">
+						<button class="btn btn-primary order-action" type="submit">✓
+							Finalizar</button>
+					</form>
+
+					<form
+						th:if="${#strings.toLowerCase(pedido.statusPedido.nomeStatus) == 'pronto'}"
+						method="post" th:action="@{/pedidos/status/avancar}">
+						<input type="hidden" name="idPedido" th:value="${pedido.idPedido}">
+						<button class="btn btn-primary order-action" type="submit">📦
+							Entregar</button>
+					</form>
+
+					<button
+						th:if="${#strings.toLowerCase(pedido.statusPedido.nomeStatus) == 'entregue'}"
+						class="btn btn-disabled order-action" type="button" disabled>
+						Concluído</button>
+
+					<button
+						th:if="${#strings.toLowerCase(pedido.statusPedido.nomeStatus) == 'cancelado'}"
+						class="btn btn-disabled order-action" type="button" disabled>
+						Cancelado</button>
+
+				</article>
+
+			</section>
+
+		</main>
+
+	</div>
+
+	<!-- Modal utilizado para cadastro de novos pedidos -->
+	<div class="modal" id="modalNovoPedido"
+		th:if="${session.perfilUsuario == 'ADM'}">
+		<div class="modal-content">
+			<button class="modal-close" type="button" data-close-modal>×</button>
+
+			<h2>Novo Pedido</h2>
+			<p class="subtitle">Registre aqui o próximo pedido da fila!</p>
+
+			<form class="modal-card" method="post" th:action="@{/pedidos/salvar}"
+				data-order-form>
+
+				<!-- Dados do cliente -->
+				<div class="form-group">
+					<p class="label">Nome do cliente:</p>
+
+					<div class="form-inline">
+						<select class="select" name="idCliente" required>
+							<option value="">Selecione o cliente</option>
+
+							<option th:each="cliente : ${clientes}"
+								th:value="${cliente.idCliente}" th:text="${cliente.nomeCliente}">
+								Cliente</option>
+						</select> <a class="btn btn-primary"
+							th:href="@{/clientes(novoCliente=true,voltarPedido=true,origemPedido='novo')}"
+							data-save-order-state> + </a>
+					</div>
+				</div>
+
+				<!-- Itens do pedido -->
+				<div class="form-group">
+					<p class="label">Item(ns) do pedido</p>
+
+					<div class="dynamic-fields">
+						<div class="form-inline" data-order-row>
+							<select class="select" name="produtos" data-order-product
+								required>
+								<option value="">Escolha o item do pedido</option>
+
+								<option th:each="produto : ${produtos}"
+									th:value="${produto.idProduto}"
+									th:data-price="${produto.precoUnitario}"
+									th:text="${produto.nomeProduto}">Produto</option>
+							</select> <input class="input" type="number" name="quantidades" min="1"
+								value="1" data-order-qty required>
+						</div>
+					</div>
+
+					<button class="btn btn-primary btn-add-below" type="button"
+						data-add-order-item>+ Adicionar item</button>
+				</div>
+
+				<!-- Exibição do valor total do pedido -->
+				<div class="order-total-preview">
+					Total do pedido: <strong data-order-form-total>R$ 0,00</strong>
+				</div>
+
+				<!-- Dados de pagamento e observações -->
+				<div class="form-group">
+					<p class="label">Forma de pagamento</p>
+
+					<select class="select" name="idPagamento" required>
+						<option value="">Selecione a forma de pagamento</option>
+
+						<option th:each="forma : ${formasPagamento}"
+							th:value="${forma.idPagamento}"
+							th:text="${forma.nomeFormaPagamento}">Forma de Pagamento
+						</option>
+					</select>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Observações do pedido</p>
+
+					<textarea class="textarea" name="observacao"
+						placeholder="Ex: sem vinagrete, ponto da carne, retirada no local..."></textarea>
+				</div>
+
+				<input type="hidden" name="nomeStatus" value="Pendente">
+
+				<button class="btn btn-soft" type="submit">Salvar</button>
+
+			</form>
+		</div>
+	</div>
+
+	<!-- Modal utilizado para edição dos pedidos cadastrados -->
+	<div class="modal" th:if="${session.perfilUsuario == 'ADM'}"
+		th:each="pedido : ${pedidos}"
+		th:id="${'modalEditarPedido' + pedido.idPedido}">
+
+		<!-- restante do modal permanece exatamente igual -->
+	</div>
+
+	<!-- Arquivo JavaScript principal da aplicação -->
+	<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

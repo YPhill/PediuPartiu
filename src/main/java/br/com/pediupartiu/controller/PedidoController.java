@@ -19,6 +19,8 @@ import br.com.pediupartiu.repository.StatusPedidoRepository;
 import br.com.pediupartiu.service.ItemPedidoService;
 import br.com.pediupartiu.service.PedidoService;
 import br.com.pediupartiu.service.ProdutoService;
+import org.springframework.web.client.RestClientException;
+import br.com.pediupartiu.integracao.ComunicacaoApiClient;
 
 //É nesta classe que todas as operações relacionadas aos pedidos são controladas, desde o cadastro até a edição, busca e exclusão.
 @Controller
@@ -31,6 +33,7 @@ public class PedidoController {
     private final ClienteRepository clienteRepository;
     private final FormaPagamentoRepository formaPagamentoRepository;
     private final StatusPedidoRepository statusPedidoRepository;
+    private final ComunicacaoApiClient comunicacaoApiClient;
 
     public PedidoController(
             PedidoService pedidoService,
@@ -38,13 +41,16 @@ public class PedidoController {
             ProdutoService produtoService,
             ClienteRepository clienteRepository,
             FormaPagamentoRepository formaPagamentoRepository,
-            StatusPedidoRepository statusPedidoRepository) {
+            StatusPedidoRepository statusPedidoRepository,
+            ComunicacaoApiClient comunicacaoApiClient) {
+
         this.pedidoService = pedidoService;
         this.itemPedidoService = itemPedidoService;
         this.produtoService = produtoService;
         this.clienteRepository = clienteRepository;
         this.formaPagamentoRepository = formaPagamentoRepository;
         this.statusPedidoRepository = statusPedidoRepository;
+        this.comunicacaoApiClient = comunicacaoApiClient;
     }
 
     //Apresenta a tela de pedidos e permite realizar buscas utilizando os filtros disponíveis.
@@ -94,12 +100,22 @@ public class PedidoController {
 
         Map<Integer, Integer> itens = montarMapaItens(produtos, quantidades);
 
-        pedidoService.criarPedidoCompleto(
+        Pedido pedido = pedidoService.criarPedidoCompleto(
                 idCliente,
                 idPagamento,
                 observacao,
                 itens
         );
+
+        try {
+            comunicacaoApiClient.notificarStatusPedido(
+                pedido.getIdPedido(),
+                pedido.getCliente().getIdCliente(),
+                pedido.getStatusPedido().getIdStatus()
+            );
+        } catch (RestClientException e) {
+            // O pedido foi salvo, mesmo que a notificação falhe.
+        }
 
         redirectAttributes.addFlashAttribute("sucesso", "Pedido cadastrado com sucesso!");
         return "redirect:/pedidos";
@@ -125,16 +141,38 @@ public class PedidoController {
             itens = montarMapaItens(produtos, quantidades);
         }
 
-        pedidoService.editarPedidoCompleto(
-                idPedido,
-                idCliente,
-                nomeStatus,
-                nomeFormaPagamento,
-                observacao,
-                itens,
-                Boolean.TRUE.equals(atualizarDataHoraPedido),
-                Boolean.TRUE.equals(voltarStatusPendente)
+
+Pedido pedidoAntes = pedidoService.buscarPorId(idPedido);
+Integer idStatusAnterior = pedidoAntes.getStatusPedido().getIdStatus();
+
+Pedido pedidoAtualizado = pedidoService.editarPedidoCompleto(
+        idPedido,
+        idCliente,
+        nomeStatus,
+        nomeFormaPagamento,
+        observacao,
+        itens,
+        Boolean.TRUE.equals(atualizarDataHoraPedido),
+        Boolean.TRUE.equals(voltarStatusPendente)
+);
+
+Integer idStatusNovo = pedidoAtualizado.getStatusPedido().getIdStatus();
+
+if (!idStatusAnterior.equals(idStatusNovo)) {
+    try {
+        comunicacaoApiClient.notificarStatusPedido(
+            pedidoAtualizado.getIdPedido(),
+            pedidoAtualizado.getCliente().getIdCliente(),
+            idStatusNovo
         );
+    } catch (RestClientException e) {
+        redirectAttributes.addFlashAttribute(
+            "mensagemAviso",
+            "Pedido atualizado, mas não foi possível enviar a notificação."
+        );
+    }
+}
+
 
         redirectAttributes.addFlashAttribute("sucesso", "Pedido atualizado com sucesso!");
         return "redirect:/pedidos";
@@ -252,9 +290,37 @@ public class PedidoController {
     }
 
     //Avança o pedido para o próximo status do fluxo de atendimento.
-    @PostMapping("/status/avancar")
-    public String avancarStatus(@RequestParam Integer idPedido) {
-        pedidoService.avancarStatus(idPedido);
-        return "redirect:/pedidos";
+
+@PostMapping("/status/avancar")
+public String avancarStatus(
+        @RequestParam Integer idPedido,
+        RedirectAttributes redirectAttributes) {
+
+    Pedido pedido = pedidoService.avancarStatus(idPedido);
+
+    Integer idCliente = pedido.getCliente().getIdCliente();
+    Integer idStatus = pedido.getStatusPedido().getIdStatus();
+
+    try {
+        comunicacaoApiClient.notificarStatusPedido(
+            pedido.getIdPedido(),
+            idCliente,
+            idStatus
+        );
+
+        redirectAttributes.addFlashAttribute(
+            "mensagemSucesso",
+            "Status atualizado e notificação enviada."
+        );
+
+    } catch (RestClientException e) {
+        redirectAttributes.addFlashAttribute(
+            "mensagemAviso",
+            "Status atualizado, mas não foi possível enviar a notificação."
+        );
     }
+
+    return "redirect:/pedidos";
+}
+
 }

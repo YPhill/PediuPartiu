@@ -311,14 +311,122 @@
 	</div>
 
 	<!-- Modal utilizado para edição dos pedidos cadastrados -->
+
 	<div class="modal" th:if="${session.perfilUsuario == 'ADM'}"
 		th:each="pedido : ${pedidos}"
 		th:id="${'modalEditarPedido' + pedido.idPedido}">
+		<div class="modal-content">
+			<button class="modal-close" type="button" data-close-modal>×</button>
 
-		<!-- restante do modal permanece exatamente igual -->
+			<h2>Editando Pedido</h2>
+			<p class="subtitle">Você está editando as informações de um
+				pedido ;)</p>
+
+			<form class="modal-card" method="post"
+				th:action="@{/pedidos/atualizar}" data-order-form
+				data-order-edit-form>
+
+				<input type="hidden" name="idPedido" th:value="${pedido.idPedido}">
+				<input type="hidden" name="atualizarDataHoraPedido" value="false"
+					data-update-date-field> <input type="hidden"
+					name="voltarStatusPendente" value="false" data-reset-status-field>
+
+				<div class="form-group">
+					<p class="label">Nome do cliente:</p>
+
+					<div class="form-inline">
+						<select class="select" name="idCliente" required>
+							<option value="">Selecione o cliente</option>
+
+							<option th:each="cliente : ${clientes}"
+								th:value="${cliente.idCliente}" th:text="${cliente.nomeCliente}"
+								th:selected="${cliente.idCliente == pedido.cliente.idCliente}">
+								Cliente</option>
+						</select> <a class="btn btn-primary"
+							th:href="@{/clientes(
+        novoCliente=true,
+        voltarPedido=true,
+        origemPedido='editar',
+        idPedido=${pedido.idPedido}
+   )}"
+							data-save-order-state> + </a>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Item(ns) do pedido</p>
+
+					<div class="dynamic-fields">
+						<div class="form-inline" data-order-row
+							th:each="item : ${pedido.itens}">
+							<select class="select" name="produtos" data-order-product
+								required>
+								<option value="">Escolha o item do pedido</option>
+
+								<option th:each="produto : ${produtos}"
+									th:value="${produto.idProduto}"
+									th:data-price="${produto.precoUnitario}"
+									th:text="${produto.nomeProduto}"
+									th:selected="${produto.idProduto == item.produto.idProduto}">
+									Produto</option>
+							</select> <input class="input" type="number" name="quantidades" min="1"
+								th:value="${item.quantidade}" data-order-qty required>
+
+							<button class="btn btn-primary" type="button" data-remove-field>-</button>
+						</div>
+					</div>
+
+					<button class="btn btn-primary btn-add-below" type="button"
+						data-add-order-item>+ Adicionar item</button>
+				</div>
+
+				<div class="order-total-preview">
+					Total do pedido: <strong data-order-form-total>R$ 0,00</strong>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Forma de pagamento</p>
+
+					<select class="select" name="nomeFormaPagamento" required>
+						<option value="">Selecione a forma de pagamento</option>
+
+						<option th:each="forma : ${formasPagamento}"
+							th:value="${forma.nomeFormaPagamento}"
+							th:text="${forma.nomeFormaPagamento}"
+							th:selected="${pedido.formaPagamento != null and forma.idPagamento == pedido.formaPagamento.idPagamento}">
+							Forma de Pagamento</option>
+					</select>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Observações do pedido</p>
+
+					<textarea class="textarea" name="observacao"
+						placeholder="Ex: sem vinagrete, ponto da carne, retirada no local..."
+						th:text="${pedido.observacao}"></textarea>
+				</div>
+
+				<div class="form-group">
+					<p class="label">Status do pedido</p>
+
+					<select class="select" name="nomeStatus" required data-status-field>
+						<option th:each="statusPedido : ${statusPedidos}"
+							th:value="${statusPedido.nomeStatus}"
+							th:text="${statusPedido.nomeStatus}"
+							th:selected="${statusPedido.idStatus == pedido.statusPedido.idStatus}">
+						</option>
+					</select>
+				</div>
+
+				<div class="modal-actions">
+					<button class="btn btn-danger" type="button" data-close-modal>Cancelar</button>
+					<button class="btn btn-soft" type="submit">Salvar</button>
+				</div>
+
+			</form>
+		</div>
 	</div>
 
-	<!-- Arquivo JavaScript principal da aplicação -->
 	<script th:src="@{/js/app.js}"></script>
 </body>
 </html>

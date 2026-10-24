@@ -98,9 +98,27 @@
 					</div>
 
 					<div class="menu-list-side">
-						<p class="price"
-							th:text="|R$ ${#numbers.formatDecimal(produto.precoUnitario, 1, 'POINT', 2, 'COMMA')}|">
-							R$ 0,00</p>
+					
+					
+						<!-- Exibe o preço e a estrela de seleção do brinde. -->
+						<div class="product-price-row">
+						
+						    <p class="price"
+						        th:text="|R$ ${#numbers.formatDecimal(produto.precoUnitario, 1, 'POINT', 2, 'COMMA')}|">
+						        R$ 0,00
+						    </p>
+						
+						    <button class="gift-star"
+						        type="button"
+						        th:attr="data-gift-product=${produto.idProduto}"
+						        title="Selecionar como brinde de fidelidade"
+						        aria-label="Selecionar como brinde de fidelidade">
+						        ☆
+						    </button>
+						
+						</div>
+						
+						
 
 						<div class="card-actions">
 							<button class="icon-btn" type="button"

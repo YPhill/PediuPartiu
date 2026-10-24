@@ -36,6 +36,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initPortugueseValidationMessages();
     storeInitialModalContent();
     initClickActions();
+	initGiftSelection();
+	initFidelityOffer();
     initSubmitActions();
     initInputAndChangeActions();
     initDateMasks();
@@ -108,9 +110,85 @@ function storeInitialModalContent() {
     });
 }
 
-// Eventos de clique da aplicação
-function initClickActions() {
+function initGiftSelection() {
+
+	
+	
+
+
+	    const giftButtons = document.querySelectorAll("[data-gift-product]");
+
+	    if (giftButtons.length === 0) {
+	        return;
+	    }
+
+	    fetch("/api/brinde-fidelidade")
+	        .then((response) => {
+	            if (response.status === 204) {
+	                return null;
+	            }
+
+	            if (!response.ok) {
+	                throw new Error("Não foi possível consultar o brinde.");
+	            }
+
+	            return response.json();
+	        })
+	        .then((idProduto) => {
+	            if (idProduto === null) {
+	                return;
+	            }
+
+	            giftButtons.forEach((button) => {
+	                if (Number(button.dataset.giftProduct) === idProduto) {
+	                    button.classList.add("selected");
+	                    button.textContent = "★";
+	                }
+	            });
+	        })
+	        .catch((error) => {
+	            console.error("Erro ao consultar o brinde:", error);
+	        });
+	}
+	
+	// Eventos de clique da aplicação
+	function initClickActions() {
+
+	
     document.addEventListener("click", (event) => {
+		
+		// Seleciona visualmente o produto escolhido como brinde.
+		const giftButton = event.target.closest("[data-gift-product]");
+
+		
+		if (giftButton) {
+		    const idProduto = giftButton.dataset.giftProduct;
+
+		    fetch("/api/brinde-fidelidade?idProduto=" + encodeURIComponent(idProduto), {
+		        method: "POST"
+		    })
+		    .then((response) => {
+		        if (!response.ok) {
+		            throw new Error("Não foi possível salvar o brinde.");
+		        }
+
+		        document.querySelectorAll("[data-gift-product]").forEach((button) => {
+		            button.classList.remove("selected");
+		            button.textContent = "☆";
+		        });
+
+		        giftButton.classList.add("selected");
+		        giftButton.textContent = "★";
+		    })
+		    .catch((error) => {
+		        alert("Não foi possível selecionar o brinde. Verifique se o microserviço de Fidelidade está funcionando.");
+		        console.error(error);
+		    });
+
+		    return;
+		}
+
+		
         const modalButton = event.target.closest("[data-modal-target]");
         if (modalButton) {
             const modal = document.getElementById(modalButton.dataset.modalTarget);
@@ -829,4 +907,78 @@ function montarUrlRetornoPedido() {
     }
 
     return "/pedidos?abrirNovoPedido=true";
+}
+
+
+function initFidelityOffer() {
+
+    const form = document.querySelector("#modalNovoPedido [data-order-form]");
+
+    if (!form) return;
+
+    // Usa delegação de eventos para funcionar mesmo após restaurar o modal.
+    document.addEventListener("change", (event) => {
+
+        const clienteSelect = event.target;
+
+        if (!clienteSelect.matches("#modalNovoPedido select[name='idCliente']")) {
+            return;
+        }
+
+        const oferta = form.querySelector("[data-fidelity-offer]");
+        const confirmacao = form.querySelector("[data-fidelity-confirm]");
+        const mensagem = form.querySelector("[data-fidelity-message]");
+        const idCliente = clienteSelect.value;
+
+        if (!oferta || !confirmacao || !mensagem) return;
+
+        oferta.style.display = "none";
+        confirmacao.checked = false;
+		confirmacao.disabled = false;
+
+        if (!idCliente) return;
+
+        mensagem.textContent = "Consultando Fidelidade...";
+
+        fetch("/api/consulta-fidelidade/clientes/" + encodeURIComponent(idCliente))
+            .then((response) => {
+
+                if (response.status === 204) {
+                    return null;
+                }
+
+                if (!response.ok) {
+                    throw new Error("Não foi possível consultar a Fidelidade.");
+                }
+
+                return response.json();
+            })
+            .then((progresso) => {
+
+                // Ignora respostas antigas se o atendente mudou de cliente.
+                if (clienteSelect.value !== idCliente) return;
+
+                if (progresso && progresso.brindePendente === true) {
+
+                    mensagem.textContent =
+                        "Este cliente possui " + progresso.estrelas +
+                        " estrelas e um brinde disponível.";
+
+                    oferta.style.display = "block";
+                }
+            })
+            .catch((error) => {
+
+                if (clienteSelect.value !== idCliente) return;
+
+                console.error("Erro ao consultar Fidelidade:", error);
+
+                mensagem.textContent =
+                    "Não foi possível consultar a Fidelidade.";
+
+                oferta.style.display = "block";
+                confirmacao.checked = false;
+                confirmacao.disabled = true;
+            });
+    });
 }

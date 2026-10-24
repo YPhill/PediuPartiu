@@ -939,3 +939,34 @@ h2 {
 	}
 	
 }
+
+
+
+/* Preço e estrela do brinde de fidelidade */
+.product-price-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Estrela disponível para seleção */
+.gift-star {
+    border: none;
+    background: transparent;
+    color: #999999;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* Destaque ao passar o mouse */
+.gift-star:hover {
+    color: #e0ad28;
+}
+
+/* Estrela do produto selecionado */
+.gift-star.selected {
+    color: #f2b705;
+}

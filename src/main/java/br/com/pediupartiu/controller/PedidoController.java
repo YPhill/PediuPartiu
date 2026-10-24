@@ -21,6 +21,7 @@ import br.com.pediupartiu.service.PedidoService;
 import br.com.pediupartiu.service.ProdutoService;
 import org.springframework.web.client.RestClientException;
 import br.com.pediupartiu.integracao.ComunicacaoApiClient;
+import br.com.pediupartiu.integracao.FidelidadeApiClient;
 
 //É nesta classe que todas as operações relacionadas aos pedidos são controladas, desde o cadastro até a edição, busca e exclusão.
 @Controller
@@ -34,6 +35,10 @@ public class PedidoController {
     private final FormaPagamentoRepository formaPagamentoRepository;
     private final StatusPedidoRepository statusPedidoRepository;
     private final ComunicacaoApiClient comunicacaoApiClient;
+    private final FidelidadeApiClient fidelidadeApiClient;
+    
+    
+    
 
     public PedidoController(
             PedidoService pedidoService,
@@ -42,7 +47,8 @@ public class PedidoController {
             ClienteRepository clienteRepository,
             FormaPagamentoRepository formaPagamentoRepository,
             StatusPedidoRepository statusPedidoRepository,
-            ComunicacaoApiClient comunicacaoApiClient) {
+            ComunicacaoApiClient comunicacaoApiClient,
+            FidelidadeApiClient fidelidadeApiClient) {
 
         this.pedidoService = pedidoService;
         this.itemPedidoService = itemPedidoService;
@@ -51,6 +57,7 @@ public class PedidoController {
         this.formaPagamentoRepository = formaPagamentoRepository;
         this.statusPedidoRepository = statusPedidoRepository;
         this.comunicacaoApiClient = comunicacaoApiClient;
+        this.fidelidadeApiClient = fidelidadeApiClient;
     }
 
     //Apresenta a tela de pedidos e permite realizar buscas utilizando os filtros disponíveis.
@@ -300,6 +307,18 @@ public String avancarStatus(
 
     Integer idCliente = pedido.getCliente().getIdCliente();
     Integer idStatus = pedido.getStatusPedido().getIdStatus();
+    
+ // Notifica a Fidelidade somente quando o pedido é entregue.
+    if (idStatus.equals(8)) {
+        try {
+            fidelidadeApiClient.notificarPedidoEntregue(
+                pedido.getIdPedido(),
+                idCliente
+            );
+        } catch (RestClientException e) {
+            // A falha da Fidelidade não impede o funcionamento do pedido.
+        }
+    }
 
     try {
         comunicacaoApiClient.notificarStatusPedido(

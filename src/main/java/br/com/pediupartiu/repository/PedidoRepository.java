@@ -69,4 +69,27 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     	List<Object[]> buscarFormasPagamentoDashboard(
     	        @Param("inicio") LocalDateTime inicio,
     	        @Param("fim") LocalDateTime fim);
+    	
+    	
+
+        // Busca os pedidos entregues para integração com a Fidelidade.
+        List<Pedido> findByStatusPedido_IdStatus(Integer idStatus);
+
+        
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Configurações e recursos utilizados pela página -->
+<head>
+<meta charset="UTF-8">
+<title>Início - Pediu, Partiu</title>
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+
+<!-- Estrutura principal da tela inicial -->
+<div class="page">
+
+    <!-- Cabeçalho e menu de navegação -->
+    <header class="header">
+        <a class="logo-link" th:href="@{/inicio}">
+            <img class="logo-img" th:src="@{/img/logo.png}" alt="Logo Pediu, Partiu">
+        </a>
+
+        <nav class="nav">
+            <a th:href="@{/inicio}" class="active">Início</a>
+
+            <a th:href="@{/pedidos}">Pedidos</a>
+
+            <a th:if="${session.perfilUsuario == 'ADM'}"
+               th:href="@{/clientes}">Clientes</a>
+
+            <a th:if="${session.perfilUsuario == 'ADM'}"
+               th:href="@{/cardapio}">Cardápio</a>
+
+            <a th:if="${session.perfilUsuario == 'ADM'}"
+               th:href="@{/dashboard}">Dashboards</a>
+
+            <a th:href="@{/sair}"
+               th:text="${session.perfilUsuario == 'COZINHA'} ? 'Sair (COZINHA)' : 'Sair (ADM)'"
+               onclick="return confirm('Tem certeza que deseja sair?')">
+               Sair
+            </a>
+        </nav>
+    </header>
+
+    <main class="content">
+
+        <!-- Apresentação inicial do sistema -->
+        <section class="home-hero">
+            <h1>Bem-vindo(a) ao Sistema D’Grill!</h1>
+            <p class="subtitle">O que você deseja gerenciar agora?</p>
+        </section>
+
+        <!-- Opções principais de navegação conforme o perfil do usuário -->
+        <section th:class="${session.perfilUsuario == 'COZINHA'} ? 'dashboard-grid dashboard-grid-cozinha' : 'dashboard-grid'">
+
+            <a class="dashboard-option dashboard-option-main"
+               th:classappend="${session.perfilUsuario == 'COZINHA'} ? ' dashboard-option-cozinha' : ''"
+               th:href="@{/pedidos}">
+                <span>🧾</span>
+                <strong>Pedidos</strong>
+            </a>
+
+            <a th:if="${session.perfilUsuario == 'ADM'}"
+               class="dashboard-option"
+               th:href="@{/clientes}">
+                <span>👥</span>
+                <strong>Clientes</strong>
+            </a>
+
+            <a th:if="${session.perfilUsuario == 'ADM'}"
+               class="dashboard-option"
+               th:href="@{/cardapio}">
+                <span>🍴</span>
+                <strong>Cardápio</strong>
+            </a>
+
+            <a th:if="${session.perfilUsuario == 'ADM'}"
+               class="dashboard-option"
+               th:href="@{/dashboard}">
+                <span>📊</span>
+                <strong>Dashboards</strong>
+            </a>
+
+        </section>
+
+        <!-- Resumo das principais informações do dia -->
+        <section class="resume-section">
+
+            <h3>Resumo do Dia</h3>
+
+            <div th:class="${session.perfilUsuario == 'COZINHA'} ? 'resume-grid resume-grid-cozinha' : 'resume-grid'">
+
+                <a class="resume-card"
+                   th:href="@{/pedidos(data=${dataHoje})}">
+                    <p>Total de pedidos hoje</p>
+                    <strong th:text="${totalPedidosHoje != null ? totalPedidosHoje : 0}">0</strong>
+                </a>
+
+                <a class="resume-card"
+                   th:href="@{/pedidos(data=${dataHoje}, status='Pendente')}">
+                    <p>Pedidos pendentes</p>
+                    <strong class="resume-danger"
+                            th:text="${pedidosPendentesHoje != null ? pedidosPendentesHoje : 0}">0</strong>
+                </a>
+
+                <a class="resume-card"
+                   th:href="@{/pedidos(data=${dataHoje}, status='Entregue')}">
+                    <p>Pedidos concluídos</p>
+                    <strong th:text="${pedidosConcluidosHoje != null ? pedidosConcluidosHoje : 0}">0</strong>
+                </a>
+
+                <a th:if="${session.perfilUsuario == 'ADM'}"
+                   class="resume-card"
+                   th:href="@{/dashboard}">
+                    <p>Faturamento hoje</p>
+                    <strong th:text="${faturamentoHoje != null ? 'R$ ' + faturamentoHoje : 'R$ 0,00'}">
+                        R$ 0,00
+                    </strong>
+                </a>
+
+            </div>
+        </section>
+
+    </main>
+
+</div>
+
+<!-- Arquivo JavaScript principal da aplicação -->
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

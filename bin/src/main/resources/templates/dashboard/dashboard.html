@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+
+<!-- Configurações e recursos utilizados pela página -->
+<head>
+<meta charset="UTF-8">
+<title>Dashboards - Pediu, Partiu</title>
+
+<link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+
+<!-- Estrutura principal da página de dashboards -->
+<div class="page">
+
+    <!-- Cabeçalho e menu de navegação -->
+    <header class="header">
+
+        <a class="logo-link" th:href="@{/inicio}">
+            <img class="logo-img"
+                 th:src="@{/img/logo.png}"
+                 alt="Logo Pediu, Partiu">
+        </a>
+
+        <nav class="nav">
+
+            <a th:href="@{/inicio}">
+                Início
+            </a>
+
+            <a th:href="@{/pedidos}">
+                Pedidos
+            </a>
+
+            <a th:href="@{/clientes}">
+                Clientes
+            </a>
+
+            <a th:href="@{/cardapio}">
+                Cardápio
+            </a>
+
+            <a class="active"
+               th:href="@{/dashboard}">
+                Dashboards
+            </a>
+
+            <a th:href="@{/sair}"
+               onclick="return confirm('Tem certeza que deseja sair?')">
+                Sair (ADM)
+            </a>
+
+        </nav>
+
+    </header>
+
+    <main class="content">
+
+        <!-- Título da página -->
+        <section class="page-title">
+
+            <div>
+
+                <h1>Dashboards</h1>
+
+                <p class="subtitle">
+                    Desempenho D'Grill nos últimos 7 dias
+                </p>
+
+            </div>
+
+        </section>
+
+        <!-- Exibição de mensagens de erro -->
+        <div class="message message-error"
+             th:if="${erro}"
+             th:text="${erro}">
+        </div>
+
+        <!-- Indicadores principais do dashboard -->
+        <section class="dashboard-summary-grid">
+
+            <div class="resume-card">
+
+                <p>Faturamento últimos 7 dias</p>
+
+                <strong th:text="${faturamentoDiaFormatado != null ? faturamentoDiaFormatado : 'R$ 0,00'}">
+                    R$ 0,00
+                </strong>
+
+            </div>
+
+            <div class="resume-card">
+
+                <p>Ticket médio últimos 7 dias</p>
+
+                <strong th:text="${ticketMedioFormatado != null ? ticketMedioFormatado : 'R$ 0,00'}">
+                    R$ 0,00
+                </strong>
+
+            </div>
+
+        </section>
+
+        <!-- Gráficos com informações dos últimos pedidos -->
+        <section class="dashboard-graphs-grid">
+
+            <!-- Gráfico de itens mais pedidos -->
+            <div class="dashboard-chart-card">
+
+                <h2>Itens mais pedidos</h2>
+
+                <div th:if="${itensMaisPedidos == null or #lists.isEmpty(itensMaisPedidos)}">
+
+                    <p class="subtitle">
+                        Ainda não há itens suficientes para exibir.
+                    </p>
+
+                </div>
+
+                <div th:each="item : ${itensMaisPedidos}"
+                     class="chart-row">
+
+                    <span th:text="${item.nome}">
+                        Item
+                    </span>
+
+                    <div class="chart-bar">
+
+                        <div class="chart-fill"
+                             th:style="'width:' + ${item.percentual} + '%'">
+                        </div>
+
+                    </div>
+
+                    <strong th:text="${item.quantidade}">
+                        0
+                    </strong>
+
+                </div>
+
+            </div>
+
+            <!-- Gráfico de formas de pagamento -->
+            <div class="dashboard-chart-card">
+
+                <h2>Formas de pagamento</h2>
+
+                <div th:if="${formasPagamentoDashboard == null or #lists.isEmpty(formasPagamentoDashboard)}">
+
+                    <p class="subtitle">
+                        Ainda não há pagamentos suficientes para exibir.
+                    </p>
+
+                </div>
+
+                <div th:each="pagamento : ${formasPagamentoDashboard}"
+                     class="chart-row">
+
+                    <span th:text="${pagamento.nome}">
+                        Pagamento
+                    </span>
+
+                    <div class="chart-bar">
+
+                        <div class="chart-fill"
+                             th:style="'width:' + ${pagamento.percentual} + '%'">
+                        </div>
+
+                    </div>
+
+                    <strong th:text="${pagamento.quantidade}">
+                        0
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<!-- Arquivo JavaScript principal da aplicação -->
+<script th:src="@{/js/app.js}"></script>
+
+</body>
+</html>

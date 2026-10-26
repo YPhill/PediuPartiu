@@ -31,7 +31,7 @@
                th:href="@{/cardapio}">Cardápio</a>
 
             <a th:if="${session.perfilUsuario == 'ADM'}"
-               th:href="@{/dashboard}">Dashboards</a>
+               th:href="@{/dashboard}">Dashboard</a>
 
             <a th:href="@{/sair}"
                th:text="${session.perfilUsuario == 'COZINHA'} ? 'Sair (COZINHA)' : 'Sair (ADM)'"

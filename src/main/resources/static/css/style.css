@@ -1394,3 +1394,23 @@ body {
 .dashboard-graficos-tres .chart-card {
     min-height: 250px;
 }
+
+/* progresso de fidelidade dos clientes */
+.client-fidelity {
+    margin-top: 8px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.client-fidelity-status {
+    margin: 0 0 5px;
+    font-size: 13px;
+    color: #666;
+}
+
+.client-fidelity-stars {
+    color: #e5aa20;
+    font-size: 21px;
+    letter-spacing: 2px;
+    white-space: nowrap;
+}

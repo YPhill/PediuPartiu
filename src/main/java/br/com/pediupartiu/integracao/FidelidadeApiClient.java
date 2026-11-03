@@ -3,6 +3,7 @@ package br.com.pediupartiu.integracao;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import java.math.BigDecimal;
 
 import java.util.Map;
 
@@ -64,6 +65,55 @@ public class FidelidadeApiClient {
                 .body(new org.springframework.core.ParameterizedTypeReference<
                         Map<String, Object>>() {});
     }
+    
+    
+ // solicita o resgate do brinde ao microserviço
+    public void resgatarBrinde(
+            Integer idPedido,
+            Integer idCliente,
+            Integer idProdutoBrinde,
+            BigDecimal valorDesconto) {
 
+        restClient.post()
+                .uri(uri -> uri
+                        .path("/api/fidelidade/resgatar")
+                        .queryParam("idPedido", idPedido)
+                        .queryParam("idCliente", idCliente)
+                        .queryParam("idProdutoBrinde", idProdutoBrinde)
+                        .queryParam("valorDesconto", valorDesconto)
+                        .build())
+                .retrieve()
+                .toBodilessEntity();
+    }
+    
+ // consulta se o pedido já teve o brinde resgatado
+    public boolean consultarResgatePedido(Integer idPedido) {
+
+        Boolean resgatado = restClient.get()
+                .uri("/api/fidelidade/resgates/pedidos/{idPedido}", idPedido)
+                .retrieve()
+                .body(Boolean.class);
+
+        return Boolean.TRUE.equals(resgatado);
+    }
+
+    
+ // consulta o desconto registrado para um pedido
+    public BigDecimal consultarDescontoPedido(Integer idPedido) {
+
+        return restClient.get()
+                .uri("/api/fidelidade/resgates/pedidos/{idPedido}/desconto", idPedido)
+                .retrieve()
+                .body(BigDecimal.class);
+    }
+    
+ // solicita o estorno de um pedido contabilizado
+    public void estornarPedido(Integer idPedido) {
+
+        restClient.post()
+                .uri("/api/fidelidade/pedidos/{idPedido}/estornar", idPedido)
+                .retrieve()
+                .toBodilessEntity();
+    }
 
 }

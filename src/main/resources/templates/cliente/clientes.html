@@ -20,21 +20,15 @@
 			</a>
 
 			<nav class="nav">
-    <a th:href="@{/inicio}">Início</a>
+				<a th:href="@{/inicio}">Início</a> <a th:href="@{/pedidos}">Pedidos</a>
 
-    <a th:href="@{/pedidos}">Pedidos</a>
+				<a th:href="@{/clientes}" class="active">Clientes</a> <a
+					th:href="@{/cardapio}">Cardápio</a> <a th:href="@{/dashboard}">Dashboard</a>
 
-    <a th:href="@{/clientes}" class="active">Clientes</a>
-
-    <a th:href="@{/cardapio}">Cardápio</a>
-
-    <a th:href="@{/dashboard}">Dashboard</a>
-
-    <a th:href="@{/sair}"
-       onclick="return confirm('Tem certeza que deseja sair?')">
-       Sair (ADM)
-    </a>
-</nav>
+				<a th:href="@{/sair}"
+					onclick="return confirm('Tem certeza que deseja sair?')"> Sair
+					(ADM) </a>
+			</nav>
 		</header>
 
 		<main class="content">
@@ -86,6 +80,8 @@
 						</form>
 					</div>
 
+
+					<!-- dados do cliente -->
 					<p class="client-name" th:text="${cliente.nomeCliente}">Nome
 						Cliente</p>
 
@@ -94,6 +90,16 @@
 							📞 <span th:text="${contato.telefone}">11 99999-9999</span>
 						</p>
 					</div>
+
+					<!-- progresso de fidelidade do cliente -->
+					<div class="client-fidelity"
+						th:attr="data-fidelity-client=${cliente.idCliente}">
+						<p class="client-fidelity-status">Consultando fidelidade...</p>
+						<div class="client-fidelity-stars"></div>
+					</div>
+
+
+
 				</article>
 
 			</section>

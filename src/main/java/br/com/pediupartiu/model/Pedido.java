@@ -1,6 +1,7 @@
 package br.com.pediupartiu.model;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 import jakarta.persistence.Column;
@@ -13,99 +14,111 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 //É nesta classe que os pedidos realizados no sistema são representados, armazenando informações do cliente, pagamento, status e itens do pedido.
 @Entity
 @Table(name = "Pedido")
 public class Pedido {
 
-    //Atributos do pedido e seus relacionamentos com as demais entidades.
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "ID_Pedido")
-    private Integer idPedido;
+	// Atributos do pedido e seus relacionamentos com as demais entidades.
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "ID_Pedido")
+	private Integer idPedido;
 
-    @ManyToOne
-    @JoinColumn(name = "ID_Pagamento")
-    private FormaPagamento formaPagamento;
+	@ManyToOne
+	@JoinColumn(name = "ID_Pagamento")
+	private FormaPagamento formaPagamento;
 
-    @ManyToOne
-    @JoinColumn(name = "ID_Cliente")
-    private Cliente cliente;
+	@ManyToOne
+	@JoinColumn(name = "ID_Cliente")
+	private Cliente cliente;
 
-    @ManyToOne
-    @JoinColumn(name = "ID_Status", nullable = false)
-    private StatusPedido statusPedido;
+	@ManyToOne
+	@JoinColumn(name = "ID_Status", nullable = false)
+	private StatusPedido statusPedido;
 
-    @Column(name = "DataHora_Pedido", insertable = false)
-    private LocalDateTime dataHoraPedido;
+	@Column(name = "DataHora_Pedido", insertable = false)
+	private LocalDateTime dataHoraPedido;
 
-    @Column(name = "Observacao", columnDefinition = "TEXT")
-    private String observacao;
+	@Column(name = "Observacao", columnDefinition = "TEXT")
+	private String observacao;
 
-    @OneToMany(mappedBy = "pedido", fetch = FetchType.EAGER)
-    private List<ItemPedido> itens;
+	// desconto não armazenado no banco principal
+	@Transient
+	private BigDecimal valorDesconto = BigDecimal.ZERO;
 
-    //Construtor padrão da classe.
-    public Pedido() {
-    }
+	@OneToMany(mappedBy = "pedido", fetch = FetchType.EAGER)
+	private List<ItemPedido> itens;
 
-    //Gets e sets utilizados para acessar e alterar os dados do pedido.
-    public Integer getIdPedido() {
-        return idPedido;
-    }
+	// Construtor padrão da classe.
+	public Pedido() {
+	}
 
-    public void setIdPedido(Integer idPedido) {
-        this.idPedido = idPedido;
-    }
+	// Gets e sets utilizados para acessar e alterar os dados do pedido.
+	public Integer getIdPedido() {
+		return idPedido;
+	}
 
-    public FormaPagamento getFormaPagamento() {
-        return formaPagamento;
-    }
+	public void setIdPedido(Integer idPedido) {
+		this.idPedido = idPedido;
+	}
 
-    public void setFormaPagamento(FormaPagamento formaPagamento) {
-        this.formaPagamento = formaPagamento;
-    }
+	public FormaPagamento getFormaPagamento() {
+		return formaPagamento;
+	}
 
-    public Cliente getCliente() {
-        return cliente;
-    }
+	public void setFormaPagamento(FormaPagamento formaPagamento) {
+		this.formaPagamento = formaPagamento;
+	}
 
-    public void setCliente(Cliente cliente) {
-        this.cliente = cliente;
-    }
+	public Cliente getCliente() {
+		return cliente;
+	}
 
-    public StatusPedido getStatusPedido() {
-        return statusPedido;
-    }
+	public void setCliente(Cliente cliente) {
+		this.cliente = cliente;
+	}
 
-    public void setStatusPedido(StatusPedido statusPedido) {
-        this.statusPedido = statusPedido;
-    }
+	public StatusPedido getStatusPedido() {
+		return statusPedido;
+	}
 
-    public LocalDateTime getDataHoraPedido() {
-        return dataHoraPedido;
-    }
+	public void setStatusPedido(StatusPedido statusPedido) {
+		this.statusPedido = statusPedido;
+	}
 
-    public void setDataHoraPedido(LocalDateTime dataHoraPedido) {
-        this.dataHoraPedido = dataHoraPedido;
-    }
+	public LocalDateTime getDataHoraPedido() {
+		return dataHoraPedido;
+	}
 
-    public String getObservacao() {
-        return observacao;
-    }
+	public void setDataHoraPedido(LocalDateTime dataHoraPedido) {
+		this.dataHoraPedido = dataHoraPedido;
+	}
 
-    public void setObservacao(String observacao) {
-        this.observacao = observacao;
-    }
+	public String getObservacao() {
+		return observacao;
+	}
 
-    public List<ItemPedido> getItens() {
-        return itens;
-    }
+	public void setObservacao(String observacao) {
+		this.observacao = observacao;
+	}
 
-    public void setItens(List<ItemPedido> itens) {
-        this.itens = itens;
-    }
-    
+	public List<ItemPedido> getItens() {
+		return itens;
+	}
+
+	public void setItens(List<ItemPedido> itens) {
+		this.itens = itens;
+	}
+
+	public BigDecimal getValorDesconto() {
+		return valorDesconto == null ? BigDecimal.ZERO : valorDesconto;
+	}
+
+	public void setValorDesconto(BigDecimal valorDesconto) {
+		this.valorDesconto = valorDesconto == null ? BigDecimal.ZERO : valorDesconto;
+	}
 
 }

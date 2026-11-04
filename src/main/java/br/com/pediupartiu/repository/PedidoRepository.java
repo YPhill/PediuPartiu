@@ -74,6 +74,13 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
 
         // Busca os pedidos entregues para integração com a Fidelidade.
         List<Pedido> findByStatusPedido_IdStatus(Integer idStatus);
+        
+
+
+        // verifica se o cliente possui pedidos posteriores
+        boolean existsByCliente_IdClienteAndIdPedidoGreaterThan(
+                Integer idCliente,
+                Integer idPedido);
 
         
 }

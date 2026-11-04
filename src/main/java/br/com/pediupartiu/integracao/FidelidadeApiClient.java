@@ -115,5 +115,29 @@ public class FidelidadeApiClient {
                 .retrieve()
                 .toBodilessEntity();
     }
+    
+
+    // solicita a devolução do brinde de um pedido cancelado
+    public void devolverBrinde(Integer idPedido) {
+
+        restClient.post()
+                .uri("/api/fidelidade/resgates/pedidos/{idPedido}/devolver",
+                        idPedido)
+                .retrieve()
+                .toBodilessEntity();
+    }
+    
+ // consulta se o brinde já foi devolvido
+    public boolean consultarBrindeDevolvido(Integer idPedido) {
+
+        Boolean devolvido = restClient.get()
+                .uri("/api/fidelidade/resgates/pedidos/{idPedido}/devolvido",
+                        idPedido)
+                .retrieve()
+                .body(Boolean.class);
+
+        return Boolean.TRUE.equals(devolvido);
+    }
+
 
 }

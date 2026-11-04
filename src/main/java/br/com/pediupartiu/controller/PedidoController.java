@@ -209,18 +209,23 @@ public class PedidoController {
 		Pedido pedidoAntes = pedidoService.buscarPorId(idPedido);
 		Integer idStatusAnterior = pedidoAntes.getStatusPedido().getIdStatus();
 		
-		// protege pedidos que possuem brinde resgatado
+
+		// trata o cancelamento de pedidos com brinde
 		if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
 
-		    boolean alterarStatus = (nomeStatus != null && !nomeStatus.isBlank()
-		            && !nomeStatus.equalsIgnoreCase(pedidoAntes.getStatusPedido().getNomeStatus()))
-		            || Boolean.TRUE.equals(voltarStatusPendente);
+		    if ("Cancelado".equalsIgnoreCase(nomeStatus)) {
 
-		    if (alterarStatus) {
-		        redirectAttributes.addFlashAttribute("mensagemAviso",
-		                "Este pedido possui um brinde resgatado e não pode ter o status alterado.");
-		        return "redirect:/pedidos";
+		        return cancelarPedidoComBrinde(
+		                idPedido, redirectAttributes);
 		    }
+
+		    // impede outras alterações no pedido com brinde
+		    redirectAttributes.addFlashAttribute(
+		            "mensagemAviso",
+		            "Este pedido possui um brinde resgatado e não pode ser editado."
+		    );
+
+		    return "redirect:/pedidos";
 		}
 
 		Pedido pedidoAtualizado = pedidoService.editarPedidoCompleto(idPedido, idCliente, nomeStatus,
@@ -440,6 +445,69 @@ public class PedidoController {
 		}
 
 		return "redirect:/pedidos";
+	}
+	
+	// cancela o pedido e devolve o direito ao brinde
+	@PostMapping("/cancelar-brinde")
+	public String cancelarPedidoComBrinde(
+	        @RequestParam Integer idPedido,
+	        RedirectAttributes redirectAttributes) {
+
+	    try {
+	        Pedido pedido = pedidoService.buscarPorId(idPedido);
+
+	        // confirma a existência do resgate
+	        if (!fidelidadeApiClient.consultarResgatePedido(idPedido)) {
+	            throw new IllegalStateException(
+	                    "Este pedido não possui brinde resgatado.");
+	        }
+
+	        // verifica se a devolução já foi realizada
+	        if (fidelidadeApiClient.consultarBrindeDevolvido(idPedido)) {
+	            throw new IllegalStateException(
+	                    "O brinde deste pedido já foi devolvido.");
+	        }
+
+	        boolean cancelado = "Cancelado".equalsIgnoreCase(
+	                pedido.getStatusPedido().getNomeStatus());
+
+	        // valida o progresso antes de cancelar
+	        if (!cancelado) {
+	            Map<String, Object> progresso =
+	                    fidelidadeApiClient.consultarProgressoCliente(
+	                            pedido.getCliente().getIdCliente());
+
+	            if (progresso == null
+	                    || !(progresso.get("estrelas") instanceof Number)
+	                    || !(progresso.get("estrelasPendentesEstorno") instanceof Number)
+	                    || ((Number) progresso.get("estrelas")).intValue() != 0
+	                    || ((Number) progresso.get("estrelasPendentesEstorno")).intValue() != 0
+	                    || !Boolean.FALSE.equals(progresso.get("brindePendente"))) {
+
+	                throw new IllegalStateException(
+	                        "O progresso do cliente não permite devolver o brinde.");
+	            }
+
+	            // salva o cancelamento no monólito
+	            pedidoService.cancelarPedidoComBrinde(idPedido);
+	        }
+
+	        // permite concluir uma devolução pendente
+	        fidelidadeApiClient.devolverBrinde(idPedido);
+
+	        redirectAttributes.addFlashAttribute(
+	                "sucesso",
+	                "Pedido cancelado e brinde devolvido com sucesso.");
+
+	    } catch (Exception e) {
+
+	        redirectAttributes.addFlashAttribute(
+	                "mensagemAviso",
+	                "Cancelamento não concluído: " + e.getMessage()
+	                + " Verifique o estado do pedido antes de tentar novamente.");
+	    }
+
+	    return "redirect:/pedidos";
 	}
 
 }

@@ -62,7 +62,8 @@ public class FidelidadeIntegracaoController {
     
     
 
-    // Consulta os dados necessários para validar o resgate.
+
+    // consulta os dados necessários para validar o resgate e a devolução
     @GetMapping("/pedidos/{idPedido}")
     public ResponseEntity<Map<String, Object>> consultarPedido(
             @PathVariable Integer idPedido) {
@@ -79,9 +80,18 @@ public class FidelidadeIntegracaoController {
                             ))
                             .toList();
 
+                    // verifica se existem pedidos posteriores do mesmo cliente
+                    boolean possuiPedidoPosterior =
+                            pedidoRepository.existsByCliente_IdClienteAndIdPedidoGreaterThan(
+                                    pedido.getCliente().getIdCliente(),
+                                    pedido.getIdPedido()
+                            );
+
                     Map<String, Object> dados = Map.of(
                             "idPedido", pedido.getIdPedido(),
                             "idCliente", pedido.getCliente().getIdCliente(),
+                            "idStatus", pedido.getStatusPedido().getIdStatus(),
+                            "possuiPedidoPosterior", possuiPedidoPosterior,
                             "itens", itens
                     );
 
@@ -89,6 +99,7 @@ public class FidelidadeIntegracaoController {
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
+
 
     
 }

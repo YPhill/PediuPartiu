@@ -133,6 +133,12 @@ public class PedidoService {
 	public Pedido editarPedido(Integer idPedido, String nomeStatus, String nomeFormaPagamento, String observacao) {
 
 		Pedido pedido = buscarPorId(idPedido);
+		
+		// impede edição de pedidos com brinde
+		if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
+		    throw new IllegalStateException(
+		            "Este pedido possui um brinde resgatado e não pode ser editado.");
+		}
 
 		if (nomeStatus != null && !nomeStatus.trim().isEmpty()) {
 			StatusPedido status = statusPedidoRepository.findByNomeStatusIgnoreCase(nomeStatus.trim())
@@ -162,6 +168,16 @@ public class PedidoService {
 		validarId(idPedido, "ID do pedido inválido.");
 
 		Pedido pedido = buscarPorId(idPedido);
+		
+		
+		
+
+        // impede alterações em pedidos com brinde resgatado
+        if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
+            throw new IllegalStateException(
+                    "Este pedido possui um brinde resgatado e não pode ser editado.");
+        }
+
 
 		if (idCliente != null) {
 			Cliente cliente = buscarClientePorId(idCliente);
@@ -230,6 +246,14 @@ public class PedidoService {
 	@Transactional
 	public void excluirPedidoInteiro(Integer idPedido) {
 		Pedido pedido = buscarPorId(idPedido);
+		
+		// impede exclusão de pedidos com brinde
+		if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
+		    throw new IllegalStateException(
+		            "Este pedido possui um brinde resgatado e não pode ser excluído.");
+		}
+		
+		
 
 		List<ItemPedido> itens = itemPedidoService.buscarItensPorPedido(idPedido);
 
@@ -243,6 +267,13 @@ public class PedidoService {
 	// Remove um item específico ou exclui o pedido inteiro quando necessário.
 	@Transactional
 	public void excluirItemOuPedidoInteiro(Integer idPedido, Integer idProduto) {
+		
+		// impede alteração dos itens de pedidos com brinde
+		if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
+		    throw new IllegalStateException(
+		            "Este pedido possui um brinde resgatado e não pode ter itens excluídos.");
+		}
+		
 		long quantidadeItens = itemPedidoService.contarItens(idPedido);
 
 		if (quantidadeItens <= 1) {
@@ -252,11 +283,19 @@ public class PedidoService {
 		}
 	}
 
-	// Atualiza a quantidade de um item do pedido.
+	// atualiza a quantidade de um item do pedido
 	@Transactional
-	public ItemPedido atualizarQuantidadeItem(Integer idPedido, Integer idProduto, Integer novaQuantidade) {
+	public ItemPedido atualizarQuantidadeItem(
+	        Integer idPedido, Integer idProduto, Integer novaQuantidade) {
 
-		return itemPedidoService.atualizarQuantidade(idPedido, idProduto, novaQuantidade);
+	    // impede alteração de pedidos com brinde
+	    if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
+	        throw new IllegalStateException(
+	                "Este pedido possui um brinde resgatado e não pode ter itens alterados.");
+	    }
+
+	    return itemPedidoService.atualizarQuantidade(
+	            idPedido, idProduto, novaQuantidade);
 	}
 
 	// Avança o pedido para o próximo status do fluxo de atendimento.
@@ -281,6 +320,47 @@ public class PedidoService {
 
 		return pedidoRepository.save(pedido);
 	}
+	
+
+    // cancela um pedido sem alterar seus itens ou cliente
+    @Transactional
+    public Pedido cancelarPedidoComBrinde(Integer idPedido) {
+
+        Pedido pedido = buscarPorId(idPedido);
+        
+
+        // confirma que o pedido possui um resgate
+        if (!fidelidadeApiClient.consultarResgatePedido(idPedido)) {
+            throw new IllegalStateException(
+                    "Este pedido não possui brinde resgatado.");
+        }
+
+
+        // impede cancelar pedidos já cancelados
+        if ("Cancelado".equalsIgnoreCase(
+                pedido.getStatusPedido().getNomeStatus())) {
+            throw new IllegalStateException(
+                    "Este pedido já está cancelado.");
+        }
+
+        // impede cancelar pedidos com histórico posterior
+        boolean possuiPedidoPosterior =
+                pedidoRepository.existsByCliente_IdClienteAndIdPedidoGreaterThan(
+                        pedido.getCliente().getIdCliente(),
+                        idPedido
+                );
+
+        if (possuiPedidoPosterior) {
+            throw new IllegalStateException(
+                    "O cliente possui pedidos posteriores. Cancelamento não permitido.");
+        }
+
+        // altera somente o status do pedido
+        pedido.setStatusPedido(buscarStatusPorNome("Cancelado"));
+
+        return pedidoRepository.save(pedido);
+    }
+
 
 	// Realiza a busca de pedidos utilizando os filtros informados.
 	public List<Pedido> buscarPedidos(String busca, String status, String data) {

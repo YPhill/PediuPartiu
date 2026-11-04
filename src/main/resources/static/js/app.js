@@ -389,6 +389,19 @@ function initInputAndChangeActions() {
             updateCategoryEmoji(categorySelect);
         }
 
+		// impede selecionar o brinde novamente
+		const produtoSelecionado = event.target.closest("[data-order-product]");
+
+		if (produtoSelecionado) {
+		    const formulario = produtoSelecionado.closest("[data-order-form]");
+		    const idBrinde = formulario?.dataset.fidelityGiftProduct;
+		    const brindeConfirmado = formulario?.querySelector("[data-fidelity-gift-row]");
+
+		    if (brindeConfirmado && produtoSelecionado.value === idBrinde) {
+		        produtoSelecionado.value = "";
+		        alert("Este produto já foi incluído como brinde. Escolha outro item.");
+		    }
+		}
 
         const orderForm = event.target.closest("[data-order-form]");
         if (orderForm) {
@@ -419,11 +432,16 @@ function closeModal(modal) {
         return;
     }
 
-    if (modal.id === "modalNovoCliente") {
-        limparFormularioNovoCliente(modal);
-    } else if (modalHasChanges(modal)) {
-        resetModalContent(modal);
-    }
+	
+	if (modal.id === "modalNovoCliente") {
+	    limparFormularioNovoCliente(modal);
+	} else if (modal.id === "modalNovoPedido") {
+	    // descarta o carrinho ao fechar o novo pedido
+	    resetModalContent(modal);
+	} else if (modalHasChanges(modal)) {
+	    resetModalContent(modal);
+	}
+
 
     modal.classList.remove("open");
 }
@@ -612,6 +630,12 @@ function removeDynamicField(button) {
     const field = button.closest(".form-inline");
 
     if (!field) return;
+	
+	// impede remover o brinde de fidelidade
+	if (field.hasAttribute("data-fidelity-gift-row")) {
+	    alert("O brinde não pode ser removido. Cancele o pedido para desistir do resgate.");
+	    return;
+	}
 
     // CLIENTE: nunca remove o último campo de telefone
     if (clientForm) {
@@ -712,10 +736,23 @@ function updateOrderFormTotal(form) {
     }
 }
 
+
 function hasAtLeastOneSelectedOrderItem(form) {
-    return Array.from(form.querySelectorAll("[data-order-product]"))
-        .some((select) => select.value && select.value.trim() !== "");
+
+    // exige um item comum além do brinde
+    const linhas = form.querySelectorAll("[data-order-row]:not([data-fidelity-gift-row])");
+
+    return Array.from(linhas).some(linha => {
+
+        const produto = linha.querySelector("[data-order-product]");
+        const quantidade = linha.querySelector("[data-order-qty]");
+
+        return produto?.value && Number(quantidade?.value) > 0;
+
+    });
+
 }
+
 
 function hasAtLeastOnePhone(form) {
     return Array.from(form.querySelectorAll('input[name="telefones"]'))
@@ -788,8 +825,11 @@ function initAutoHideMessages() {
 // Armazenamento temporário dos dados dos pedidos
 const ORDER_STATE_KEY = "pediuPartiuOrderState";
 
+
 function initSaveOrderStateBeforeClientRedirect() {
+
     document.addEventListener("click", (event) => {
+
         const button = event.target.closest("[data-save-order-state]");
 
         if (!button) return;
@@ -798,11 +838,28 @@ function initSaveOrderStateBeforeClientRedirect() {
 
         if (!form) return;
 
-        saveOrderFormState(form);
+        // impede sair do pedido após confirmar o resgate
+        if (!saveOrderFormState(form)) {
+            event.preventDefault();
+            return;
+        }
+
     });
+
 }
 
+
 function saveOrderFormState(form) {
+	
+	
+	// impede salvar um carrinho com resgate confirmado
+	if (form.querySelector("[data-fidelity-gift-row]")) {
+	    alert("O resgate já foi confirmado. Finalize o pedido ou descarte o carrinho para começar novamente.");
+	    return false;
+	}
+
+	
+	
     const modal = form.closest(".modal");
 
     const state = {
@@ -819,7 +876,7 @@ function saveOrderFormState(form) {
         state.fields[field.name] = field.value;
     });
 
-    form.querySelectorAll("[data-order-row]").forEach((row) => {
+    form.querySelectorAll("[data-order-row]:not([data-fidelity-gift-row])").forEach((row) => {
         const produto = row.querySelector("[data-order-product]");
         const quantidade = row.querySelector("[data-order-qty]");
 
@@ -830,6 +887,8 @@ function saveOrderFormState(form) {
     });
 
     sessionStorage.setItem(ORDER_STATE_KEY, JSON.stringify(state));
+	
+		return true;
 }
 
 function initRestoreOrderStateFromUrl() {
@@ -922,20 +981,160 @@ function montarUrlRetornoPedido() {
     return "/pedidos?abrirNovoPedido=true";
 }
 
-// consulta o brinde disponível e atualiza o formulário
-function initFidelityOffer() {
-    const form = document.querySelector("#modalNovoPedido [data-order-form]");
 
-    if (!form) return;
+
+
+// adiciona e bloqueia o brinde no carrinho
+function adicionarBrindeAutomatico(form) {
+    const idBrinde = form.dataset.fidelityGiftProduct;
+    const campos = form.querySelector(".dynamic-fields");
+    const linhaNormal = campos?.querySelector("[data-regular-order-row]");
+
+    if (!idBrinde || !linhaNormal) {
+        alert("Não foi possível identificar o produto do brinde.");
+        return false;
+    }
+
+    if (campos.querySelector("[data-fidelity-gift-row]")) {
+        return true;
+    }
+	
+	
+	// impede duplicar um produto já selecionado
+	const itensNormais = campos.querySelectorAll("[data-order-row]");
+
+	for (const linha of itensNormais) {
+	    const produtoSelecionado = linha.querySelector("[data-order-product]");
+
+	    if (produtoSelecionado?.value === idBrinde) {
+	        alert("O produto escolhido como brinde já está no pedido. Remova esse item antes de confirmar o resgate.");
+	        return false;
+	    }
+	}
+
+
+    const modelo = linhaNormal.querySelector("[data-order-product]");
+    const opcaoBrinde = Array.from(modelo.options)
+        .find(opcao => opcao.value === idBrinde);
+
+    if (!opcaoBrinde) {
+        alert("O produto do brinde não está disponível no cardápio.");
+        return false;
+    }
+
+    const linhaBrinde = document.createElement("div");
+    linhaBrinde.className = "form-inline";
+    linhaBrinde.setAttribute("data-order-row", "");
+    linhaBrinde.setAttribute("data-fidelity-gift-row", "");
+
+    const produto = document.createElement("select");
+    produto.className = "select";
+    produto.setAttribute("data-order-product", "");
+    produto.disabled = true;
+
+    const opcao = opcaoBrinde.cloneNode(true);
+    produto.appendChild(opcao);
+    produto.value = idBrinde;
+
+    const quantidade = document.createElement("input");
+    quantidade.className = "input";
+    quantidade.type = "number";
+    quantidade.value = "1";
+    quantidade.disabled = true;
+    quantidade.setAttribute("data-order-qty", "");
+
+    const identificacao = document.createElement("span");
+    identificacao.textContent = "⭐ Brinde bloqueado";
+
+    linhaBrinde.appendChild(produto);
+    linhaBrinde.appendChild(quantidade);
+    linhaBrinde.appendChild(identificacao);
+    campos.appendChild(linhaBrinde);
+
+    // envia os valores mesmo com os campos bloqueados
+    const produtoOculto = document.createElement("input");
+    produtoOculto.type = "hidden";
+    produtoOculto.name = "produtos";
+    produtoOculto.value = idBrinde;
+    produtoOculto.setAttribute("data-fidelity-hidden", "");
+
+    const quantidadeOculta = document.createElement("input");
+    quantidadeOculta.type = "hidden";
+    quantidadeOculta.name = "quantidades";
+    quantidadeOculta.value = "1";
+    quantidadeOculta.setAttribute("data-fidelity-hidden", "");
+
+    form.appendChild(produtoOculto);
+    form.appendChild(quantidadeOculta);
+
+    updateOrderFormTotal(form);
+    return true;
+}
+
+
+
+// consulta o brinde disponível e atualiza o formulário
+
+
+function initFidelityOffer() {
 
     document.addEventListener("change", (event) => {
+
+        // consulta o formulário atual após reabrir o modal
+        const form = document.querySelector("#modalNovoPedido [data-order-form]");
+
+        if (!form) return;
+
         const clienteSelect = event.target;
 
         if (!clienteSelect.matches("#modalNovoPedido select[name='idCliente']")) {
+
             if (clienteSelect.matches("#modalNovoPedido [data-fidelity-confirm]")) {
+
+                if (clienteSelect.checked) {
+
+                    if (adicionarBrindeAutomatico(form)) {
+
+                        clienteSelect.disabled = true;
+
+                        // bloqueia a troca de cliente após confirmar o resgate
+                        const campoCliente = form.querySelector('select[name="idCliente"]');
+
+                        if (campoCliente) {
+
+                            campoCliente.disabled = true;
+
+                            // mantém o cliente no envio do pedido
+                            const clienteOculto = document.createElement("input");
+                            clienteOculto.type = "hidden";
+                            clienteOculto.name = "idCliente";
+                            clienteOculto.value = campoCliente.value;
+                            clienteOculto.setAttribute("data-fidelity-hidden", "");
+                            form.appendChild(clienteOculto);
+
+                        }
+
+                        const confirmacaoOculta = document.createElement("input");
+                        confirmacaoOculta.type = "hidden";
+                        confirmacaoOculta.name = "resgatarBrinde";
+                        confirmacaoOculta.value = "true";
+                        confirmacaoOculta.setAttribute("data-fidelity-hidden", "");
+                        form.appendChild(confirmacaoOculta);
+
+                    } else {
+
+                        clienteSelect.checked = false;
+
+                    }
+
+                }
+
                 updateOrderFormTotal(form);
+
             }
+
             return;
+
         }
 
         const oferta = form.querySelector("[data-fidelity-offer]");
@@ -945,10 +1144,19 @@ function initFidelityOffer() {
 
         if (!oferta || !confirmacao || !mensagem) return;
 
+        // limpa o brinde automático ao trocar de cliente
+        form.querySelector("[data-fidelity-gift-row]")?.remove();
+
+        form.querySelectorAll("[data-fidelity-hidden]").forEach(campo => {
+            campo.remove();
+        });
+
         oferta.style.display = "none";
         confirmacao.checked = false;
         confirmacao.disabled = false;
+
         delete form.dataset.fidelityGiftProduct;
+
         updateOrderFormTotal(form);
 
         if (!idCliente) return;
@@ -956,15 +1164,23 @@ function initFidelityOffer() {
         mensagem.textContent = "Consultando Fidelidade...";
 
         fetch("/api/consulta-fidelidade/clientes/" + encodeURIComponent(idCliente))
+
             .then((response) => {
+
                 if (response.status === 204) return null;
+
                 if (!response.ok) {
                     throw new Error("Não foi possível consultar a Fidelidade.");
                 }
+
                 return response.json();
+
             })
+
             .then((progresso) => {
-                if (clienteSelect.value !== idCliente) return;
+
+                // ignora respostas de formulários descartados
+                if (!form.isConnected || clienteSelect.value !== idCliente) return;
 
                 if (!progresso || progresso.brindePendente !== true) return;
 
@@ -974,39 +1190,64 @@ function initFidelityOffer() {
                 oferta.style.display = "block";
 
                 return fetch("/api/brinde-fidelidade")
+
                     .then((response) => {
+
                         if (response.status === 204) return null;
+
                         if (!response.ok) {
                             throw new Error("Não foi possível consultar o produto do brinde.");
                         }
+
                         return response.json();
+
                     })
+
                     .then((idProduto) => {
-                        if (clienteSelect.value !== idCliente) return;
+
+                        // ignora respostas de formulários descartados
+                        if (!form.isConnected || clienteSelect.value !== idCliente) return;
 
                         if (idProduto !== null) {
+
                             form.dataset.fidelityGiftProduct = String(idProduto);
+
                         } else {
+
                             confirmacao.disabled = true;
                             mensagem.textContent = "Nenhum produto configurado como brinde.";
+
                         }
 
                         updateOrderFormTotal(form);
+
                     });
+
             })
+
             .catch((error) => {
-                if (clienteSelect.value !== idCliente) return;
+
+                // ignora respostas de formulários descartados
+                if (!form.isConnected || clienteSelect.value !== idCliente) return;
 
                 console.error("Erro ao consultar Fidelidade:", error);
+
                 mensagem.textContent = "Não foi possível consultar a Fidelidade.";
+
                 oferta.style.display = "block";
                 confirmacao.checked = false;
                 confirmacao.disabled = true;
+
                 delete form.dataset.fidelityGiftProduct;
+
                 updateOrderFormTotal(form);
+
             });
+
     });
+
 }
+
 
 
 // progresso de fidelidade no painel de clientes

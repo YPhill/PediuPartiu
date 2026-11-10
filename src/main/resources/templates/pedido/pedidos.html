@@ -170,6 +170,28 @@
 							th:text="|R$ ${#numbers.formatDecimal(item.produto.precoUnitario * item.quantidade, 1, 'POINT', 2, 'COMMA')}|">
 							R$ 0,00 </span>
 					</div>
+					
+					<!-- informa o desconto do brinde -->
+<!-- informa o desconto do brinde -->
+<div class="gift-discount"
+     th:if="${pedido.idProdutoBrinde != null
+         and pedido.valorDesconto != null
+         and pedido.valorDesconto.doubleValue() > 0}">
+
+    <span>⭐ Brinde de fidelidade</span>
+
+    <span>
+        Desconto aplicado:
+        <strong class="gift-discount-value"
+                th:text="|− R$ ${#numbers.formatDecimal(
+                    pedido.valorDesconto.doubleValue(),
+                    1, 'POINT', 2, 'COMMA')}|">
+            − R$ 0,00
+        </strong>
+    </span>
+
+</div>
+					
 
 					<p class="order-note"
 						th:if="${pedido.observacao != null and !#strings.isEmpty(pedido.observacao)}"

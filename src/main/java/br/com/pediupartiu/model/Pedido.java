@@ -48,6 +48,9 @@ public class Pedido {
 	// desconto não armazenado no banco principal
 	@Transient
 	private BigDecimal valorDesconto = BigDecimal.ZERO;
+	
+	@Transient
+	private Integer idProdutoBrinde;
 
 	@OneToMany(mappedBy = "pedido", fetch = FetchType.EAGER)
 	private List<ItemPedido> itens;
@@ -121,4 +124,12 @@ public class Pedido {
 		this.valorDesconto = valorDesconto == null ? BigDecimal.ZERO : valorDesconto;
 	}
 
+	public Integer getIdProdutoBrinde() {
+	    return idProdutoBrinde;
+	}
+
+	public void setIdProdutoBrinde(Integer idProdutoBrinde) {
+	    this.idProdutoBrinde = idProdutoBrinde;
+	}
+	
 }

@@ -363,11 +363,21 @@ public class PedidoController {
 
 	    for (Pedido pedido : pedidos) {
 	        try {
-	            if (fidelidadeApiClient.consultarResgatePedido(pedido.getIdPedido())) {
-	                BigDecimal desconto = fidelidadeApiClient.consultarDescontoPedido(pedido.getIdPedido());
+	        	if (fidelidadeApiClient.consultarResgatePedido(pedido.getIdPedido())) {
 
-	                pedido.setValorDesconto(desconto == null ? BigDecimal.ZERO : desconto);
-	            }
+	        	    BigDecimal desconto =
+	        	            fidelidadeApiClient.consultarDescontoPedido(
+	        	                    pedido.getIdPedido());
+
+	        	    Integer idProdutoBrinde =
+	        	            fidelidadeApiClient.consultarProdutoBrindePedido(
+	        	                    pedido.getIdPedido());
+
+	        	    pedido.setValorDesconto(
+	        	            desconto == null ? BigDecimal.ZERO : desconto);
+
+	        	    pedido.setIdProdutoBrinde(idProdutoBrinde);
+	        	}
 	        } catch (RestClientException e) {
 	            // mantém a tela disponível se a fidelidade falhar
 	        }

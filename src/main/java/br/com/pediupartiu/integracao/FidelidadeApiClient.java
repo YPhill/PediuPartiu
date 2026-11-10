@@ -107,6 +107,16 @@ public class FidelidadeApiClient {
                 .body(BigDecimal.class);
     }
     
+ // consulta o produto utilizado como brinde em um pedido
+    public Integer consultarProdutoBrindePedido(Integer idPedido) {
+
+        return restClient.get()
+                .uri("/api/fidelidade/resgates/pedidos/{idPedido}/produto",
+                        idPedido)
+                .retrieve()
+                .body(Integer.class);
+    }
+    
  // solicita o estorno de um pedido contabilizado
     public void estornarPedido(Integer idPedido) {
 

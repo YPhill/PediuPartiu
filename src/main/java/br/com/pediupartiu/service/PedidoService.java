@@ -5,7 +5,8 @@ import java.util.Map;
 import java.util.ArrayList;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.web.client.RestClientException;
+import br.com.pediupartiu.integracao.FidelidadeApiClient;
 import br.com.pediupartiu.model.Cliente;
 import br.com.pediupartiu.model.FormaPagamento;
 import br.com.pediupartiu.model.ItemPedido;
@@ -67,21 +68,21 @@ public class PedidoService {
 		return itemPedidoService.buscarItensPorPedido(idPedido);
 	}
 
-	// calcula o total considerando o desconto de fidelidade
+	// calcula o total utilizando o desconto registrado localmente
 	public Double calcularTotalPedido(Integer idPedido) {
 
-	    buscarPorId(idPedido);
+	    Pedido pedido = buscarPorId(idPedido);
 
 	    Double totalItens = itemPedidoService.calcularTotalPedido(idPedido);
 
 	    BigDecimal desconto = BigDecimal.ZERO;
 
-	    if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
-	        desconto = fidelidadeApiClient.consultarDescontoPedido(idPedido);
+	    if (pedido.isPossuiBrinde() && pedido.getValorDesconto() != null) {
+	        desconto = pedido.getValorDesconto();
 	    }
 
 	    double total = (totalItens == null ? 0.0 : totalItens)
-	            - (desconto == null ? 0.0 : desconto.doubleValue());
+	            - desconto.doubleValue();
 
 	    return Math.max(0.0, total);
 	}
@@ -112,50 +113,55 @@ public class PedidoService {
 		return pedidoSalvo;
 	}
 
+
 	// cria o pedido com desconto de fidelidade
 	@Transactional
 	public Pedido criarPedidoComDesconto(Integer idCliente, Integer idPagamento, String observacao,
-			Map<Integer, Integer> itens, BigDecimal valorDesconto) {
+	        Map<Integer, Integer> itens, BigDecimal valorDesconto) {
 
-		if (valorDesconto == null || valorDesconto.compareTo(BigDecimal.ZERO) <= 0) {
-			throw new IllegalArgumentException("O desconto deve ser maior que zero.");
-		}
+	    if (valorDesconto == null || valorDesconto.compareTo(BigDecimal.ZERO) <= 0) {
+	        throw new IllegalArgumentException("O desconto deve ser maior que zero.");
+	    }
 
-		Pedido pedido = criarPedidoCompleto(idCliente, idPagamento, observacao, itens);
+	    Pedido pedido = criarPedidoCompleto(idCliente, idPagamento, observacao, itens);
 
-		pedido.setValorDesconto(valorDesconto);
+	    // preserva a data antes de salvar o desconto
+	    pedido.setDataHoraPedido(LocalDateTime.now());
 
-		return pedidoRepository.save(pedido);
+	    pedido.setValorDesconto(valorDesconto);
+
+	    return pedidoRepository.save(pedido);
 	}
 
-	// Atualiza as informações básicas de um pedido.
+
+	// atualiza as informações básicas de um pedido
 	@Transactional
-	public Pedido editarPedido(Integer idPedido, String nomeStatus, String nomeFormaPagamento, String observacao) {
+	public Pedido editarPedido(Integer idPedido, String nomeStatus,
+	        String nomeFormaPagamento, String observacao) {
 
-		Pedido pedido = buscarPorId(idPedido);
-		
-		// impede edição de pedidos com brinde
-		if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
-		    throw new IllegalStateException(
-		            "Este pedido possui um brinde resgatado e não pode ser editado.");
-		}
+	    Pedido pedido = buscarPorId(idPedido);
 
-		if (nomeStatus != null && !nomeStatus.trim().isEmpty()) {
-			StatusPedido status = statusPedidoRepository.findByNomeStatusIgnoreCase(nomeStatus.trim())
-					.orElseThrow(() -> new IllegalArgumentException("Status não encontrado."));
-			pedido.setStatusPedido(status);
-		}
+	    validarAcessoPedidoComBrinde(pedido);
 
-		if (nomeFormaPagamento != null && !nomeFormaPagamento.trim().isEmpty()) {
-			FormaPagamento formaPagamento = formaPagamentoRepository
-					.findByNomeFormaPagamentoIgnoreCase(nomeFormaPagamento.trim())
-					.orElseThrow(() -> new IllegalArgumentException("Forma de pagamento não encontrada."));
-			pedido.setFormaPagamento(formaPagamento);
-		}
+	    if (nomeStatus != null && !nomeStatus.trim().isEmpty()) {
+	        StatusPedido status = statusPedidoRepository
+	                .findByNomeStatusIgnoreCase(nomeStatus.trim())
+	                .orElseThrow(() -> new IllegalArgumentException("Status não encontrado."));
 
-		pedido.setObservacao(tratarTextoOpcional(observacao));
+	        pedido.setStatusPedido(status);
+	    }
 
-		return pedidoRepository.save(pedido);
+	    if (nomeFormaPagamento != null && !nomeFormaPagamento.trim().isEmpty()) {
+	        FormaPagamento formaPagamento = formaPagamentoRepository
+	                .findByNomeFormaPagamentoIgnoreCase(nomeFormaPagamento.trim())
+	                .orElseThrow(() -> new IllegalArgumentException("Forma de pagamento não encontrada."));
+
+	        pedido.setFormaPagamento(formaPagamento);
+	    }
+
+	    pedido.setObservacao(tratarTextoOpcional(observacao));
+
+	    return pedidoRepository.save(pedido);
 	}
 
 	// Realiza a edição completa de um pedido, incluindo cliente, itens, status e
@@ -169,19 +175,51 @@ public class PedidoService {
 
 		Pedido pedido = buscarPorId(idPedido);
 		
+		// verifica a fidelidade antes de editar pedidos com brinde
+		if (pedido.isPossuiBrinde()) {
+		    try {
+		        boolean resgateConfirmado =
+		                fidelidadeApiClient.consultarResgatePedido(idPedido);
+
+		        if (!resgateConfirmado) {
+		            throw new IllegalStateException(
+		                    "Não é possível editar este pedido porque o resgate do brinde não foi confirmado.");
+		        }
+
+		    } catch (RestClientException e) {
+		        throw new IllegalStateException(
+		                "Não é possível editar pedidos com brinde enquanto a Fidelidade estiver indisponível.");
+		    }
+		}
+		
+		// impede trocar o cliente de um pedido com brinde
+		if (pedido.isPossuiBrinde()
+		        && idCliente != null
+		        && !pedido.getCliente().getIdCliente().equals(idCliente)) {
+
+		    throw new IllegalArgumentException(
+		            "Não é permitido alterar o cliente de um pedido com brinde.");
+		}
+		
 		
 		
 
         // impede alterações em pedidos com brinde resgatado
-        if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
-            throw new IllegalStateException(
-                    "Este pedido possui um brinde resgatado e não pode ser editado.");
-        }
+		validarAcessoPedidoComBrinde(pedido);
 
 
+		// preserva o cliente associado ao resgate do brinde
 		if (idCliente != null) {
-			Cliente cliente = buscarClientePorId(idCliente);
-			pedido.setCliente(cliente);
+
+		    if (pedido.isPossuiBrinde()
+		            && !pedido.getCliente().getIdCliente().equals(idCliente)) {
+
+		        throw new IllegalArgumentException(
+		                "Não é permitido trocar o cliente de um pedido com brinde.");
+		    }
+
+		    Cliente cliente = buscarClientePorId(idCliente);
+		    pedido.setCliente(cliente);
 		}
 
 		if (nomeStatus != null && !nomeStatus.trim().isEmpty()) {
@@ -207,7 +245,10 @@ public class PedidoService {
 			pedido.setDataHoraPedido(LocalDateTime.now());
 		}
 
-		atualizarItensDoPedido(idPedido, itensTela);
+		if (itensTela != null) {
+		    validarItensComBrinde(pedido, itensTela);
+		    atualizarItensDoPedido(idPedido, itensTela);
+		}
 
 		return pedidoRepository.save(pedido);
 	}
@@ -248,9 +289,9 @@ public class PedidoService {
 		Pedido pedido = buscarPorId(idPedido);
 		
 		// impede exclusão de pedidos com brinde
-		if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
+		if (pedido.isPossuiBrinde()) {
 		    throw new IllegalStateException(
-		            "Este pedido possui um brinde resgatado e não pode ser excluído.");
+		            "Pedidos com brinde não podem ser excluídos.");
 		}
 		
 		
@@ -264,23 +305,41 @@ public class PedidoService {
 		pedidoRepository.delete(pedido);
 	}
 
-	// Remove um item específico ou exclui o pedido inteiro quando necessário.
+	// remove um item ou exclui o pedido quando permitido
 	@Transactional
 	public void excluirItemOuPedidoInteiro(Integer idPedido, Integer idProduto) {
-		
-		// impede alteração dos itens de pedidos com brinde
-		if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
-		    throw new IllegalStateException(
-		            "Este pedido possui um brinde resgatado e não pode ter itens excluídos.");
-		}
-		
-		long quantidadeItens = itemPedidoService.contarItens(idPedido);
 
-		if (quantidadeItens <= 1) {
-			excluirPedidoInteiro(idPedido);
-		} else {
-			itemPedidoService.excluirItem(idPedido, idProduto);
-		}
+	    Pedido pedido = buscarPorId(idPedido);
+
+	    validarAcessoPedidoComBrinde(pedido);
+
+	    if (pedido.isPossuiBrinde()) {
+
+	        Map<Integer, Integer> itensRestantes = new java.util.HashMap<>();
+
+	        for (ItemPedido item : itemPedidoService.buscarItensPorPedido(idPedido)) {
+
+	            Integer idProdutoAtual = item.getProduto().getIdProduto();
+
+	            if (!idProdutoAtual.equals(idProduto)) {
+	                itensRestantes.put(idProdutoAtual, item.getQuantidade());
+	            }
+	        }
+
+	        validarItensComBrinde(pedido, itensRestantes);
+
+	        itemPedidoService.excluirItem(idPedido, idProduto);
+
+	    } else {
+
+	        long quantidadeItens = itemPedidoService.contarItens(idPedido);
+
+	        if (quantidadeItens <= 1) {
+	            excluirPedidoInteiro(idPedido);
+	        } else {
+	            itemPedidoService.excluirItem(idPedido, idProduto);
+	        }
+	    }
 	}
 
 	// atualiza a quantidade de um item do pedido
@@ -288,10 +347,26 @@ public class PedidoService {
 	public ItemPedido atualizarQuantidadeItem(
 	        Integer idPedido, Integer idProduto, Integer novaQuantidade) {
 
-	    // impede alteração de pedidos com brinde
-	    if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
-	        throw new IllegalStateException(
-	                "Este pedido possui um brinde resgatado e não pode ter itens alterados.");
+	    Pedido pedido = buscarPorId(idPedido);
+
+	    validarAcessoPedidoComBrinde(pedido);
+
+	    if (pedido.isPossuiBrinde()) {
+
+	        Map<Integer, Integer> itensAtualizados = new java.util.HashMap<>();
+
+	        for (ItemPedido item : itemPedidoService.buscarItensPorPedido(idPedido)) {
+
+	            Integer idProdutoAtual = item.getProduto().getIdProduto();
+
+	            itensAtualizados.put(
+	                    idProdutoAtual,
+	                    idProdutoAtual.equals(idProduto)
+	                            ? novaQuantidade
+	                            : item.getQuantidade());
+	        }
+
+	        validarItensComBrinde(pedido, itensAtualizados);
 	    }
 
 	    return itemPedidoService.atualizarQuantidade(
@@ -394,6 +469,50 @@ public class PedidoService {
 				.orElseThrow(() -> new IllegalArgumentException("Status não encontrado."));
 	}
 
+	// verifica a disponibilidade da fidelidade para pedidos com brinde
+	private void validarAcessoPedidoComBrinde(Pedido pedido) {
+
+	    if (pedido.isPossuiBrinde()) {
+
+	        boolean resgateConfirmado =
+	                fidelidadeApiClient.consultarResgatePedido(
+	                        pedido.getIdPedido());
+
+	        if (!resgateConfirmado) {
+	            throw new IllegalStateException(
+	                    "Não foi possível confirmar o resgate do brinde. Verifique a conexão com a Fidelidade.");
+	        }
+	    }
+	}
+
+	// preserva o brinde e exige pelo menos um item pago
+	private void validarItensComBrinde(
+	        Pedido pedido, Map<Integer, Integer> itens) {
+
+	    validarItensPedido(itens);
+
+	    if (!pedido.isPossuiBrinde()) {
+	        return;
+	    }
+
+	    Integer idBrinde = pedido.getIdProdutoBrinde();
+
+	    if (idBrinde == null || !itens.containsKey(idBrinde)) {
+	        throw new IllegalArgumentException(
+	                "O produto do brinde não pode ser removido.");
+	    }
+
+	    boolean possuiItemPago = itens.entrySet().stream()
+	            .anyMatch(item ->
+	                    !item.getKey().equals(idBrinde)
+	                    || item.getValue() > 1);
+
+	    if (!possuiItemPago) {
+	        throw new IllegalArgumentException(
+	                "O pedido precisa manter pelo menos um item pago.");
+	    }
+	}
+	
 	// Valida os itens informados para o pedido.
 	private void validarItensPedido(Map<Integer, Integer> itens) {
 		if (itens == null || itens.isEmpty()) {
@@ -518,6 +637,22 @@ public class PedidoService {
 		Double total = pedidoRepository.calcularFaturamentoEntre(inicioDoDia, fimDoDia);
 
 		return total == null ? 0.0 : total;
+	}
+	
+	// registra localmente o brinde confirmado pela fidelidade
+	@Transactional
+	public void registrarBrindeConfirmado(
+	        Integer idPedido,
+	        Integer idProdutoBrinde,
+	        BigDecimal valorDesconto) {
+
+	    Pedido pedido = buscarPorId(idPedido);
+
+	    pedido.setPossuiBrinde(true);
+	    pedido.setIdProdutoBrinde(idProdutoBrinde);
+	    pedido.setValorDesconto(valorDesconto);
+
+	    pedidoRepository.save(pedido);
 	}
 
 }

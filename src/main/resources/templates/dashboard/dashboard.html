@@ -22,15 +22,18 @@
         </a>
 
         <nav class="nav">
+
             <a th:href="@{/inicio}">Início</a>
             <a th:href="@{/pedidos}">Pedidos</a>
             <a th:href="@{/clientes}">Clientes</a>
             <a th:href="@{/cardapio}">Cardápio</a>
             <a class="active" th:href="@{/dashboard}">Dashboard</a>
+
             <a th:href="@{/sair}"
                onclick="return confirm('Tem certeza que deseja sair?')">
                 Sair (ADM)
             </a>
+
         </nav>
 
     </header>
@@ -47,43 +50,54 @@
                 </p>
             </div>
 
-            <form class="dashboard-periodo-form"
-                  th:action="@{/dashboard}"
-                  method="get">
+           
 
-                <label for="periodo-dashboard">Período</label>
+<form class="dashboard-periodo-form"
+      th:action="@{/dashboard}"
+      method="get">
 
-                <select id="periodo-dashboard"
-                        name="dias"
-                        onchange="this.form.submit()">
+    <label for="periodo-dashboard">Período</label>
 
-                    <option value=""
-                            th:selected="${diasSelecionados == null}">
-                        Tudo
-                    </option>
+    <select id="periodo-dashboard"
+            name="dias"
+            onchange="this.form.submit()">
 
-                    <option value="7"
-                            th:selected="${diasSelecionados == 7}">
-                        7 dias
-                    </option>
+        <option value=""
+                th:selected="${diasSelecionados == null}">
+            Tudo
+        </option>
 
-                    <option value="15"
-                            th:selected="${diasSelecionados == 15}">
-                        15 dias
-                    </option>
+        <option value="0"
+                th:selected="${diasSelecionados != null and diasSelecionados == 0}">
+            Hoje
+        </option>
 
-                    <option value="30"
-                            th:selected="${diasSelecionados == 30}">
-                        30 dias
-                    </option>
+        <option value="7"
+                th:selected="${diasSelecionados != null and diasSelecionados == 7}">
+            Últimos 7 dias
+        </option>
 
-                    <option value="60"
-                            th:selected="${diasSelecionados == 60}">
-                        60 dias
-                    </option>
+        <option value="15"
+                th:selected="${diasSelecionados != null and diasSelecionados == 15}">
+            Últimos 15 dias
+        </option>
 
-                </select>
-            </form>
+        <option value="30"
+                th:selected="${diasSelecionados != null and diasSelecionados == 30}">
+            Últimos 30 dias
+        </option>
+
+        <option value="60"
+                th:selected="${diasSelecionados != null and diasSelecionados == 60}">
+            Últimos 60 dias
+        </option>
+
+    </select>
+
+</form>
+
+
+
 
         </section>
 
@@ -103,9 +117,11 @@
                 <div class="resume-card">
 
                     <div class="dashboard-card-topo">
+
                         <p>Pedidos registrados</p>
 
-                        <span class="dashboard-card-icone" aria-hidden="true">
+                        <span class="dashboard-card-icone"
+                              aria-hidden="true">
                             <svg xmlns="http://www.w3.org/2000/svg"
                                  width="24" height="24"
                                  viewBox="0 0 24 24"
@@ -114,11 +130,13 @@
                                  stroke-width="2"
                                  stroke-linecap="round"
                                  stroke-linejoin="round">
-                                <rect x="8" y="4" width="8" height="4" rx="1"/>
+                                <rect x="8" y="4" width="8"
+                                      height="4" rx="1"/>
                                 <path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/>
                                 <path d="M8 12h.01M12 12h4M8 16h.01M12 16h4"/>
                             </svg>
                         </span>
+
                     </div>
 
                     <strong th:text="${pedidosRegistrados != null ? pedidosRegistrados : 0}">
@@ -131,9 +149,11 @@
                 <div class="resume-card">
 
                     <div class="dashboard-card-topo">
+
                         <p>Pedidos entregues</p>
 
-                        <span class="dashboard-card-icone" aria-hidden="true">
+                        <span class="dashboard-card-icone"
+                              aria-hidden="true">
                             <svg xmlns="http://www.w3.org/2000/svg"
                                  width="24" height="24"
                                  viewBox="0 0 24 24"
@@ -147,6 +167,7 @@
                                 <path d="m2 12 5 5"/>
                             </svg>
                         </span>
+
                     </div>
 
                     <strong th:text="${pedidosEntregues != null ? pedidosEntregues : 0}">
@@ -159,9 +180,11 @@
                 <div class="resume-card">
 
                     <div class="dashboard-card-topo">
+
                         <p>Pedidos cancelados</p>
 
-                        <span class="dashboard-card-icone" aria-hidden="true">
+                        <span class="dashboard-card-icone"
+                              aria-hidden="true">
                             <svg xmlns="http://www.w3.org/2000/svg"
                                  width="24" height="24"
                                  viewBox="0 0 24 24"
@@ -174,6 +197,7 @@
                                 <path d="m15 9-6 6M9 9l6 6"/>
                             </svg>
                         </span>
+
                     </div>
 
                     <strong th:text="${pedidosCancelados != null ? pedidosCancelados : 0}">
@@ -191,9 +215,11 @@
                 <div class="resume-card">
 
                     <div class="dashboard-card-topo">
+
                         <p>Faturamento</p>
 
-                        <span class="dashboard-card-icone" aria-hidden="true">
+                        <span class="dashboard-card-icone"
+                              aria-hidden="true">
                             <svg xmlns="http://www.w3.org/2000/svg"
                                  width="24" height="24"
                                  viewBox="0 0 24 24"
@@ -207,6 +233,7 @@
                                 <path d="M17 15h.01"/>
                             </svg>
                         </span>
+
                     </div>
 
                     <strong th:text="${faturamentoDiaFormatado != null ? faturamentoDiaFormatado : 'R$ 0,00'}">
@@ -219,9 +246,11 @@
                 <div class="resume-card">
 
                     <div class="dashboard-card-topo">
+
                         <p>Ticket médio</p>
 
-                        <span class="dashboard-card-icone" aria-hidden="true">
+                        <span class="dashboard-card-icone"
+                              aria-hidden="true">
                             <svg xmlns="http://www.w3.org/2000/svg"
                                  width="24" height="24"
                                  viewBox="0 0 24 24"
@@ -234,6 +263,7 @@
                                 <path d="M8 9h8M8 13h6"/>
                             </svg>
                         </span>
+
                     </div>
 
                     <strong th:text="${ticketMedioFormatado != null ? ticketMedioFormatado : 'R$ 0,00'}">
@@ -246,14 +276,15 @@
 
         </section>
 
-        <!-- terceira linha: três gráficos -->
+        <!-- terceira linha: três painéis -->
         <section class="dashboard-graficos-tres">
 
-            <!-- produtos mais vendidos: barras horizontais -->
+            <!-- produtos mais vendidos -->
             <div class="dashboard-chart-card">
 
                 <h2>
-                    <span class="dashboard-grafico-icone" aria-hidden="true">
+                    <span class="dashboard-grafico-icone"
+                          aria-hidden="true">
                         <svg xmlns="http://www.w3.org/2000/svg"
                              width="24" height="24"
                              viewBox="0 0 24 24"
@@ -292,11 +323,12 @@
 
             </div>
 
-            <!-- vendas por dia: barras verticais -->
+            <!-- vendas por dia -->
             <div class="dashboard-chart-card">
 
                 <h2>
-                    <span class="dashboard-grafico-icone" aria-hidden="true">
+                    <span class="dashboard-grafico-icone"
+                          aria-hidden="true">
                         <svg xmlns="http://www.w3.org/2000/svg"
                              width="24" height="24"
                              viewBox="0 0 24 24"
@@ -347,49 +379,48 @@
 
             </div>
 
-            <!-- formas de pagamento: barras horizontais -->
+            <!-- indicadores de fidelidade -->
             <div class="dashboard-chart-card">
 
                 <h2>
-                    <span class="dashboard-grafico-icone" aria-hidden="true">
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                             width="24" height="24"
-                             viewBox="0 0 24 24"
-                             fill="none"
-                             stroke="currentColor"
-                             stroke-width="2"
-                             stroke-linecap="round"
-                             stroke-linejoin="round">
-                            <rect x="2" y="5" width="20" height="14" rx="2"/>
-                            <path d="M2 10h20M6 15h4"/>
-                        </svg>
-                    </span>
-                    Formas de pagamento
+                    <span class="dashboard-grafico-icone"
+                          aria-hidden="true">☆</span>
+                    Fidelidade
                 </h2>
 
-                <p class="subtitle"
-                   th:if="${formasPagamentoDashboard == null or #lists.isEmpty(formasPagamentoDashboard)}">
-                    Ainda não há pagamentos para exibir.
-                </p>
+                <!-- indicadores disponíveis -->
+                <div class="fidelidade-indicadores"
+                     th:if="${clientesParticipantes != null and brindesResgatados != null}">
 
-                <div class="dashboard-barras-horizontais"
-                     th:each="pagamento : ${formasPagamentoDashboard}">
+                    <!-- clientes participantes -->
+                    <div class="fidelidade-card">
 
-                    <div class="dashboard-barra-cabecalho">
-                        <span th:text="${pagamento.nome}">
-                            Pagamento
-                        </span>
+                        <strong th:text="${clientesParticipantes}">
+                            0
+                        </strong>
 
-<strong th:text="${#numbers.formatInteger(pagamento.quantidade, 1)}">0</strong>
+                        <span>Clientes participantes</span>
+
                     </div>
 
-                    <div class="chart-bar">
-                        <div class="chart-fill"
-                             th:style="'width:' + ${pagamento.percentual} + '%'">
-                        </div>
+                    <!-- brindes resgatados -->
+                    <div class="fidelidade-card">
+
+                        <strong th:text="${brindesResgatados}">
+                            0
+                        </strong>
+
+                        <span>Brindes resgatados</span>
+
                     </div>
 
                 </div>
+
+                <!-- fidelidade indisponível -->
+                <p class="subtitle"
+                   th:if="${clientesParticipantes == null or brindesResgatados == null}">
+                    Indicadores de fidelidade indisponíveis.
+                </p>
 
             </div>
 

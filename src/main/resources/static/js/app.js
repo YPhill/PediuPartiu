@@ -190,6 +190,17 @@ function initClickActions() {
         }
 
 
+		// informa quando a edição está bloqueada pela fidelidade
+		const blockedEditButton = event.target.closest("[data-edit-blocked]");
+
+		if (blockedEditButton) {
+		    alert(
+		        "Não é possível editar um pedido com brinde enquanto o microsserviço de Fidelidade estiver fora do ar."
+		    );
+
+		    return;
+		}
+		
         const modalButton = event.target.closest("[data-modal-target]");
         if (modalButton) {
             const modal = document.getElementById(modalButton.dataset.modalTarget);
@@ -611,7 +622,9 @@ function addOrderItemRow(button) {
         template.innerHTML = form.dataset.orderRowTemplate.trim();
         newRow = template.content.firstElementChild;
     } else {
-        const firstRow = fields.querySelector("[data-order-row]");
+		const firstRow = fields.querySelector(
+		    "[data-order-row]:not([data-fidelity-gift-row])"
+		);
         if (!firstRow) return;
         newRow = firstRow.cloneNode(true);
     }
@@ -701,7 +714,9 @@ function updateCategoryEmoji(select) {
 // Controle e cálculo dos pedidos
 function initOrderForms() {
     document.querySelectorAll("[data-order-form]").forEach((form) => {
-        const firstOrderRow = form.querySelector("[data-order-row]");
+		const firstOrderRow = form.querySelector(
+		    "[data-order-row]:not([data-fidelity-gift-row])"
+		);
         if (firstOrderRow) {
             form.dataset.orderRowTemplate = firstOrderRow.outerHTML;
         }
@@ -712,7 +727,9 @@ function initOrderForms() {
 
 function updateOrderFormsInside(scope) {
     scope.querySelectorAll("[data-order-form]").forEach((form) => {
-        const firstOrderRow = form.querySelector("[data-order-row]");
+		const firstOrderRow = form.querySelector(
+		    "[data-order-row]:not([data-fidelity-gift-row])"
+		);
         if (firstOrderRow) {
             form.dataset.orderRowTemplate = firstOrderRow.outerHTML;
         }
@@ -1008,7 +1025,9 @@ function montarUrlRetornoPedido() {
 function adicionarBrindeAutomatico(form) {
     const idBrinde = form.dataset.fidelityGiftProduct;
     const campos = form.querySelector(".dynamic-fields");
-    const linhaNormal = campos?.querySelector("[data-regular-order-row]");
+	const linhaNormal = campos?.querySelector(
+	    "[data-order-row]:not([data-fidelity-gift-row])"
+	);
 
     if (!idBrinde || !linhaNormal) {
         alert("Não foi possível identificar o produto do brinde.");

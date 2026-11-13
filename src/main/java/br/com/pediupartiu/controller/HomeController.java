@@ -1,61 +1,93 @@
+
 package br.com.pediupartiu.controller;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-
+import java.util.Locale;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
-import br.com.pediupartiu.service.PedidoService;
+import br.com.pediupartiu.integracao.analise.AnaliseApiClient;
+import br.com.pediupartiu.integracao.analise.ResumoAnaliseDTO;
 
-//É nesta classe que as informações exibidas na tela inicial são carregadas, apresentando um resumo das operações do dia.
 @Controller
 public class HomeController {
 
-    private final PedidoService pedidoService;
+    private final AnaliseApiClient analiseApiClient;
 
-    public HomeController(PedidoService pedidoService) {
-        this.pedidoService = pedidoService;
+    public HomeController(AnaliseApiClient analiseApiClient) {
+        this.analiseApiClient = analiseApiClient;
     }
 
-    //Busca os principais indicadores do dia e envia essas informações para a tela inicial do sistema.
+    // carrega os indicadores da tela inicial
     @GetMapping("/inicio")
-    public String telaInicial(Model model) {
+    public String telaInicial(Model model, HttpSession session) {
+
+        // verifica se o usuário possui acesso válido
+        String perfilUsuario = (String) session.getAttribute("perfilUsuario");
+
+        if (!"ADM".equals(perfilUsuario)
+                && !"COZINHA".equals(perfilUsuario)) {
+            return "redirect:/";
+        }
+
+        String dataHoje = LocalDate.now()
+                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+
+        model.addAttribute("dataHoje", dataHoje);
 
         try {
 
-            String dataHoje = LocalDate.now()
-                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            // consulta os indicadores de hoje na análise
+            ResumoAnaliseDTO resumo =
+                    analiseApiClient.consultarIndicadores(0);
 
-            long totalPedidosHoje = pedidoService.contarPedidosHoje();
+            if (resumo == null) {
+                throw new IllegalStateException(
+                        "resumo de análise indisponível");
+            }
 
-            long pedidosPendentesHoje =
-                    pedidoService.contarPedidosHojePorStatus("Pendente");
+            // disponibiliza os indicadores para o html
+            model.addAttribute(
+                    "totalPedidosHoje",
+                    resumo.getPedidosRegistrados()
+            );
 
-            long pedidosConcluidosHoje =
-                    pedidoService.contarPedidosHojePorStatus("Entregue");
-            double faturamentoHoje = pedidoService.calcularFaturamentoHoje();
+            model.addAttribute(
+                    "pedidosPendentesHoje",
+                    resumo.getPedidosPendentes()
+            );
 
-            model.addAttribute("dataHoje", dataHoje);
+            model.addAttribute(
+                    "pedidosConcluidosHoje",
+                    resumo.getPedidosEntregues()
+            );
 
-            model.addAttribute("totalPedidosHoje", totalPedidosHoje);
+            model.addAttribute(
+                    "faturamentoHoje",
+                    String.format(
+                            Locale.forLanguageTag("pt-BR"),
+                            "%.2f",
+                            resumo.getFaturamento()
+                    )
+            );
 
-            model.addAttribute("pedidosPendentesHoje", pedidosPendentesHoje);
-
-            model.addAttribute("pedidosConcluidosHoje", pedidosConcluidosHoje);
-            model.addAttribute("faturamentoHoje", String.format("%.2f", faturamentoHoje).replace(".", ","));
-
-            return "index";
+            model.addAttribute("analiseDisponivel", true);
 
         } catch (Exception e) {
 
+            // mantém a tela inicial disponível
+            model.addAttribute("analiseDisponivel", false);
+
             model.addAttribute(
                     "erro",
-                    "Banco de dados temporariamente indisponível. Tente novamente."
+                    "Os indicadores do Resumo do Dia estão temporariamente indisponíveis."
             );
 
-            return "index";
         }
+
+        return "index";
     }
 }

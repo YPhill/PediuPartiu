@@ -45,11 +45,14 @@ public class Pedido {
 	@Column(name = "Observacao", columnDefinition = "TEXT")
 	private String observacao;
 
-	// desconto não armazenado no banco principal
-	@Transient
+	// informações locais do brinde
+	@Column(name = "Possui_Brinde", nullable = false)
+	private boolean possuiBrinde = false;
+
+	@Column(name = "Valor_Desconto", precision = 10, scale = 2)
 	private BigDecimal valorDesconto = BigDecimal.ZERO;
-	
-	@Transient
+
+	@Column(name = "ID_Produto_Brinde")
 	private Integer idProdutoBrinde;
 
 	@OneToMany(mappedBy = "pedido", fetch = FetchType.EAGER)
@@ -130,6 +133,14 @@ public class Pedido {
 
 	public void setIdProdutoBrinde(Integer idProdutoBrinde) {
 	    this.idProdutoBrinde = idProdutoBrinde;
+	}
+	
+	public boolean isPossuiBrinde() {
+	    return possuiBrinde;
+	}
+
+	public void setPossuiBrinde(boolean possuiBrinde) {
+	    this.possuiBrinde = possuiBrinde;
 	}
 	
 }

@@ -8,6 +8,7 @@ public class ResumoAnaliseDTO {
     private long pedidosRegistrados;
     private long pedidosEntregues;
     private long pedidosCancelados;
+    private long pedidosPendentes;
     
 
     private double faturamento;
@@ -17,6 +18,9 @@ public class ResumoAnaliseDTO {
     private List<Map<String, Object>> faturamentoPorProduto;
     private List<Map<String, Object>> vendasPorDia;
     private List<Map<String, Object>> formasPagamento;
+ // indicadores recebidos da fidelidade
+    private Long clientesParticipantes;
+    private Long brindesResgatados;
     
     public long getPedidosRegistrados() {
         return pedidosRegistrados;
@@ -93,5 +97,30 @@ public class ResumoAnaliseDTO {
     public void setFormasPagamento(
             List<Map<String, Object>> formasPagamento) {
         this.formasPagamento = formasPagamento;
+    }
+ // retorna os clientes participantes
+    public Long getClientesParticipantes() {
+        return clientesParticipantes;
+    }
+
+    public void setClientesParticipantes(Long clientesParticipantes) {
+        this.clientesParticipantes = clientesParticipantes;
+    }
+
+    // retorna os brindes resgatados
+    public Long getBrindesResgatados() {
+        return brindesResgatados;
+    }
+
+    public void setBrindesResgatados(Long brindesResgatados) {
+        this.brindesResgatados = brindesResgatados;
+    }
+ // retorna os pedidos pendentes
+    public long getPedidosPendentes() {
+        return pedidosPendentes;
+    }
+
+    public void setPedidosPendentes(long pedidosPendentes) {
+        this.pedidosPendentes = pedidosPendentes;
     }
 }

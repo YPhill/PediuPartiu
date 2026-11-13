@@ -40,6 +40,9 @@ public class DashboardController {
     public String telaDashboard(
             Model model,
             @RequestParam(required = false) Integer dias) {
+    	
+    	// mantém o período selecionado na tela
+    	model.addAttribute("diasSelecionados", dias);
 
         try {
 
@@ -76,8 +79,6 @@ public class DashboardController {
                     "ticketMedioFormatado",
                     formatarMoeda(resumo.getTicketMedio())
             );
-
-            model.addAttribute("diasSelecionados", dias);
             
          // carrega os produtos mais vendidos do microsserviço
             model.addAttribute(
@@ -95,6 +96,17 @@ public class DashboardController {
             model.addAttribute(
                     "formasPagamentoDashboard",
                     prepararFormasPagamento(resumo)
+            );
+            
+         // disponibiliza os indicadores de fidelidade
+            model.addAttribute(
+                    "clientesParticipantes",
+                    resumo.getClientesParticipantes()
+            );
+
+            model.addAttribute(
+                    "brindesResgatados",
+                    resumo.getBrindesResgatados()
             );
         } catch (Exception e) {
 

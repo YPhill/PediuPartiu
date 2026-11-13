@@ -117,9 +117,19 @@
 						<div>
 							<div class="card-actions"
 								th:if="${session.perfilUsuario == 'ADM'}">
-								<button class="icon-btn" type="button"
-									th:attr="data-modal-target=${'modalEditarPedido' + pedido.idPedido}">
-									✎</button>
+								<button class="icon-btn"
+        type="button"
+        th:if="${!pedidosBloqueadosEdicao.contains(pedido.idPedido)}"
+        th:attr="data-modal-target=${'modalEditarPedido' + pedido.idPedido}">
+    ✎
+</button>
+
+<button class="icon-btn"
+        type="button"
+        th:if="${pedidosBloqueadosEdicao.contains(pedido.idPedido)}"
+        data-edit-blocked>
+    ✎
+</button>
 
 								<form method="post" th:action="@{/pedidos/excluir}"
 									data-confirm-delete>
@@ -305,20 +315,30 @@
 				<div class="form-group">
 					<p class="label">Item(ns) do pedido</p>
 
-					<div class="dynamic-fields">
-						<div class="form-inline" data-order-row data-regular-order-row>
-							<select class="select" name="produtos" data-order-product
-								required>
-								<option value="">Escolha o item do pedido</option>
+<div class="dynamic-fields">
+    <div class="form-inline" data-order-row>
+        <select class="select" name="produtos"
+                data-order-product required>
+            <option value="">Escolha o item do pedido</option>
 
-								<option th:each="produto : ${produtos}"
-									th:value="${produto.idProduto}"
-									th:data-price="${produto.precoUnitario}"
-									th:text="${produto.nomeProduto}">Produto</option>
-							</select> <input class="input" type="number" name="quantidades" min="1"
-								value="1" data-order-qty required>
-						</div>
-					</div>
+            <option th:each="produto : ${produtos}"
+                    th:value="${produto.idProduto}"
+                    th:data-price="${produto.precoUnitario}"
+                    th:text="${produto.nomeProduto}">
+                Produto
+            </option>
+        </select>
+
+        <input class="input" type="number"
+               name="quantidades" min="1"
+               value="1" data-order-qty required>
+
+        <button class="btn btn-primary"
+                type="button" data-remove-field>-</button>
+    </div>
+</div>
+
+
 
 					<button class="btn btn-primary btn-add-below" type="button"
 						data-add-order-item>+ Adicionar item</button>
@@ -360,9 +380,11 @@
 
 	<!-- Modal utilizado para edição dos pedidos cadastrados -->
 
-	<div class="modal" th:if="${session.perfilUsuario == 'ADM'}"
-		th:each="pedido : ${pedidos}"
-		th:id="${'modalEditarPedido' + pedido.idPedido}">
+	<div class="modal"
+     th:if="${session.perfilUsuario == 'ADM'
+         and !pedidosBloqueadosEdicao.contains(pedido.idPedido)}"
+     th:each="pedido : ${pedidos}"
+     th:id="${'modalEditarPedido' + pedido.idPedido}">
 		<div class="modal-content">
 			<button class="modal-close" type="button" data-close-modal>×</button>
 
@@ -382,47 +404,122 @@
 				<div class="form-group">
 					<p class="label">Nome do cliente:</p>
 
-					<div class="form-inline">
-						<select class="select" name="idCliente" required>
-							<option value="">Selecione o cliente</option>
+					
+<div class="form-inline">
 
-							<option th:each="cliente : ${clientes}"
-								th:value="${cliente.idCliente}" th:text="${cliente.nomeCliente}"
-								th:selected="${cliente.idCliente == pedido.cliente.idCliente}">
-								Cliente</option>
-						</select> <a class="btn btn-primary"
-							th:href="@{/clientes(
-        novoCliente=true,
-        voltarPedido=true,
-        origemPedido='editar',
-        idPedido=${pedido.idPedido}
-   )}"
-							data-save-order-state> + </a>
-					</div>
+    <select class="select"
+            name="idCliente"
+            required
+            th:disabled="${pedido.possuiBrinde}">
+
+        <option value="">Selecione o cliente</option>
+
+        <option th:each="cliente : ${clientes}"
+                th:value="${cliente.idCliente}"
+                th:text="${cliente.nomeCliente}"
+                th:selected="${cliente.idCliente == pedido.cliente.idCliente}">
+            Cliente
+        </option>
+    </select>
+
+    <!-- mantém o cliente original no envio do formulário -->
+    <input type="hidden"
+           name="idCliente"
+           th:if="${pedido.possuiBrinde}"
+           th:value="${pedido.cliente.idCliente}">
+
+    <a class="btn btn-primary"
+       th:if="${!pedido.possuiBrinde}"
+       th:href="@{/clientes(
+           novoCliente=true,
+           voltarPedido=true,
+           origemPedido='editar',
+           idPedido=${pedido.idPedido}
+       )}"
+       data-save-order-state>+</a>
+
+</div>
+
 				</div>
 
 				<div class="form-group">
 					<p class="label">Item(ns) do pedido</p>
 
-					<div class="dynamic-fields">
-						<div class="form-inline" data-order-row
-							th:each="item : ${pedido.itens}">
-							<select class="select" name="produtos" data-order-product
-								required>
-								<option value="">Escolha o item do pedido</option>
+					
 
-								<option th:each="produto : ${produtos}"
-									th:value="${produto.idProduto}"
-									th:data-price="${produto.precoUnitario}"
-									th:text="${produto.nomeProduto}"
-									th:selected="${produto.idProduto == item.produto.idProduto}">
-									Produto</option>
-							</select> <input class="input" type="number" name="quantidades" min="1"
-								th:value="${item.quantidade}" data-order-qty required>
 
-							<button class="btn btn-primary" type="button" data-remove-field>-</button>
-						</div>
-					</div>
+<div class="dynamic-fields">
+
+    <!-- itens pagos permanecem editáveis -->
+    <div class="form-inline"
+         data-order-row
+         th:each="item : ${pedido.itens}"
+         th:if="${!pedido.possuiBrinde
+    or item.produto.idProduto != pedido.idProdutoBrinde
+    or item.quantidade > 1}">
+
+        <select class="select" name="produtos"
+                data-order-product required>
+
+            <option value="">Escolha o item do pedido</option>
+
+            <option th:each="produto : ${produtos}"
+                    th:value="${produto.idProduto}"
+                    th:data-price="${produto.precoUnitario}"
+                    th:text="${produto.nomeProduto}"
+                    th:selected="${produto.idProduto == item.produto.idProduto}">
+                Produto
+            </option>
+        </select>
+
+        <input class="input" type="number"
+               name="quantidades" min="1"
+               th:value="${item.produto.idProduto == pedido.idProdutoBrinde
+    ? item.quantidade - 1
+    : item.quantidade}"
+               data-order-qty required>
+
+        <button class="btn btn-primary"
+                type="button" data-remove-field>-</button>
+    </div>
+
+    <!-- brinde mantém a estrutura visual original -->
+    <div class="form-inline"
+         data-order-row
+         data-fidelity-gift-row
+         th:each="item : ${pedido.itens}"
+         th:if="${pedido.possuiBrinde and item.produto.idProduto == pedido.idProdutoBrinde}">
+
+        <select class="select"
+                data-order-product
+                disabled>
+
+            <option th:value="${item.produto.idProduto}"
+                    th:data-price="${item.produto.precoUnitario}"
+                    th:text="${item.produto.nomeProduto}"
+                    selected>
+                Produto
+            </option>
+        </select>
+
+        <input class="input" type="number"
+               value="1"
+               data-order-qty
+               disabled>
+
+        <span>⭐ Brinde Fidelidade</span>
+
+        <input type="hidden" name="produtos"
+               th:value="${item.produto.idProduto}">
+
+        <input type="hidden" name="quantidades"
+               value="1">
+    </div>
+
+</div>
+
+
+
 
 					<button class="btn btn-primary btn-add-below" type="button"
 						data-add-order-item>+ Adicionar item</button>

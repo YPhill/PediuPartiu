@@ -1,6 +1,8 @@
 package br.com.pediupartiu.controller;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -23,6 +25,7 @@ import org.springframework.web.client.RestClientException;
 import br.com.pediupartiu.integracao.ComunicacaoApiClient;
 import br.com.pediupartiu.integracao.FidelidadeApiClient;
 import java.math.BigDecimal;
+import org.springframework.transaction.annotation.Transactional;
 
 //É nesta classe que todas as operações relacionadas aos pedidos são controladas, desde o cadastro até a edição, busca e exclusão.
 @Controller
@@ -62,6 +65,29 @@ public class PedidoController {
 		carregarDadosTelaPedidos(model);
 
 		List<Pedido> pedidos = pedidoService.buscarPedidos(busca, status, data);
+		// identifica pedidos com brinde que não podem ser editados
+		Set<Integer> pedidosBloqueadosEdicao = new HashSet<>();
+
+		for (Pedido pedido : pedidos) {
+
+		    if (pedido.isPossuiBrinde()) {
+
+		        try {
+		            boolean resgateConfirmado =
+		                    fidelidadeApiClient.consultarResgatePedido(
+		                            pedido.getIdPedido());
+
+		            if (!resgateConfirmado) {
+		                pedidosBloqueadosEdicao.add(pedido.getIdPedido());
+		            }
+
+		        } catch (RestClientException e) {
+		            pedidosBloqueadosEdicao.add(pedido.getIdPedido());
+		        }
+		    }
+		}
+
+		model.addAttribute("pedidosBloqueadosEdicao", pedidosBloqueadosEdicao);
 
 		carregarDescontosPedidos(pedidos);
 
@@ -78,6 +104,20 @@ public class PedidoController {
 	@GetMapping("/editar/{idPedido}")
 	public String editarPedido(@PathVariable Integer idPedido, Model model) {
 		Pedido pedido = pedidoService.buscarPorId(idPedido);
+		// bloqueia o acesso direto à edição quando a fidelidade estiver indisponível
+		if (pedido.isPossuiBrinde()) {
+		    try {
+		        boolean resgateConfirmado =
+		                fidelidadeApiClient.consultarResgatePedido(idPedido);
+
+		        if (!resgateConfirmado) {
+		            return "redirect:/pedidos";
+		        }
+
+		    } catch (RestClientException e) {
+		        return "redirect:/pedidos";
+		    }
+		}
 		List<ItemPedido> itens = itemPedidoService.buscarItensPorPedido(idPedido);
 
 		carregarDadosTelaPedidos(model);
@@ -152,29 +192,44 @@ public class PedidoController {
 
 		// confirma o resgate no microserviço
 		if (Boolean.TRUE.equals(resgatarBrinde)) {
-			try {
-				fidelidadeApiClient.resgatarBrinde(pedido.getIdPedido(), idCliente, idProdutoBrinde, valorDesconto);
 
-			} catch (RestClientException e) {
+		    boolean resgateConfirmado = false;
 
-				// verifica se o resgate foi registrado apesar da falha
-				boolean resgateConfirmado = false;
+		    try {
+		        fidelidadeApiClient.resgatarBrinde(
+		                pedido.getIdPedido(),
+		                idCliente,
+		                idProdutoBrinde,
+		                valorDesconto);
 
-				try {
-					resgateConfirmado = fidelidadeApiClient.consultarResgatePedido(pedido.getIdPedido());
+		        resgateConfirmado = true;
 
-				} catch (RestClientException consultaErro) {
-					// mantém o pedido para conferência posterior
-				}
+		    } catch (RestClientException e) {
 
-				if (!resgateConfirmado) {
-					redirectAttributes.addFlashAttribute("mensagemAviso",
-							"O pedido #" + pedido.getIdPedido() + " foi salvo com desconto, mas o resgate não pôde "
-									+ "ser confirmado. Verifique antes de tentar novamente.");
+		        // verifica se o resgate foi registrado apesar da falha
+		        try {
+		            resgateConfirmado =
+		                    fidelidadeApiClient.consultarResgatePedido(
+		                            pedido.getIdPedido());
 
-					return "redirect:/pedidos";
-				}
-			}
+		        } catch (RestClientException consultaErro) {
+		            // mantém o pedido para conferência posterior
+		        }
+		    }
+
+		    if (!resgateConfirmado) {
+		        redirectAttributes.addFlashAttribute(
+		                "mensagemAviso",
+		                "O pedido foi salvo, mas o resgate não foi confirmado.");
+
+		        return "redirect:/pedidos";
+		    }
+
+		    // salva as informações do brinde no banco principal
+		    pedidoService.registrarBrindeConfirmado(
+		            pedido.getIdPedido(),
+		            idProdutoBrinde,
+		            valorDesconto);
 		}
 
 		try {
@@ -188,140 +243,195 @@ public class PedidoController {
 		return "redirect:/pedidos";
 	}
 
-	// Atualiza as informações de um pedido já cadastrado.
+
+	// atualiza as informações de um pedido já cadastrado
 	@PostMapping("/atualizar")
-	public String atualizarPedido(@RequestParam Integer idPedido, @RequestParam(required = false) Integer idCliente,
-			@RequestParam(required = false) List<Integer> produtos,
-			@RequestParam(required = false) List<Integer> quantidades,
-			@RequestParam(required = false) String nomeStatus,
-			@RequestParam(required = false) String nomeFormaPagamento,
-			@RequestParam(required = false) String observacao,
-			@RequestParam(required = false, defaultValue = "false") Boolean atualizarDataHoraPedido,
-			@RequestParam(required = false, defaultValue = "false") Boolean voltarStatusPendente,
-			RedirectAttributes redirectAttributes) {
-
-		Map<Integer, Integer> itens = null;
-
-		if (produtos != null && quantidades != null) {
-			itens = montarMapaItens(produtos, quantidades);
-		}
-
-		Pedido pedidoAntes = pedidoService.buscarPorId(idPedido);
-		Integer idStatusAnterior = pedidoAntes.getStatusPedido().getIdStatus();
-		
-
-		// trata o cancelamento de pedidos com brinde
-		if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
-
-		    if ("Cancelado".equalsIgnoreCase(nomeStatus)) {
-
-		        return cancelarPedidoComBrinde(
-		                idPedido, redirectAttributes);
-		    }
-
-		    // impede outras alterações no pedido com brinde
-		    redirectAttributes.addFlashAttribute(
-		            "mensagemAviso",
-		            "Este pedido possui um brinde resgatado e não pode ser editado."
-		    );
-
-		    return "redirect:/pedidos";
-		}
-
-		Pedido pedidoAtualizado = pedidoService.editarPedidoCompleto(idPedido, idCliente, nomeStatus,
-				nomeFormaPagamento, observacao, itens, Boolean.TRUE.equals(atualizarDataHoraPedido),
-				Boolean.TRUE.equals(voltarStatusPendente));
-
-		Integer idStatusNovo = pedidoAtualizado.getStatusPedido().getIdStatus();
-		
-		// estorna a estrela quando o pedido deixa de ser entregue
-		if (idStatusAnterior.equals(8) && !idStatusNovo.equals(8)) {
-		    fidelidadeApiClient.estornarPedido(idPedido);
-		}
-
-		// contabiliza a estrela quando o pedido volta a ser entregue
-		if (!idStatusAnterior.equals(8) && idStatusNovo.equals(8)) {
-		    fidelidadeApiClient.notificarPedidoEntregue(
-		            idPedido,
-		            pedidoAtualizado.getCliente().getIdCliente());
-		}
-
-		if (!idStatusAnterior.equals(idStatusNovo)) {
-			try {
-				comunicacaoApiClient.notificarStatusPedido(pedidoAtualizado.getIdPedido(),
-						pedidoAtualizado.getCliente().getIdCliente(), idStatusNovo);
-			} catch (RestClientException e) {
-				redirectAttributes.addFlashAttribute("mensagemAviso",
-						"Pedido atualizado, mas não foi possível enviar a notificação.");
-			}
-		}
-
-		redirectAttributes.addFlashAttribute("sucesso", "Pedido atualizado com sucesso!");
-		return "redirect:/pedidos";
-	}
-
-	// Atualiza a quantidade de um item já existente no pedido.
-	@PostMapping("/item/atualizar")
-	public String atualizarItem(@RequestParam Integer idPedido, @RequestParam Integer idProduto,
-			@RequestParam Integer quantidade) {
-
-		pedidoService.atualizarQuantidadeItem(idPedido, idProduto, quantidade);
-
-		return "redirect:/pedidos/editar/" + idPedido;
-	}
-
-	// protege a fidelidade na exclusão de itens
-	@PostMapping("/item/excluir")
-	public String excluirItemOuPedido(@RequestParam Integer idPedido,
-	        @RequestParam Integer idProduto,
+	public String atualizarPedido(
+	        @RequestParam Integer idPedido,
+	        @RequestParam(required = false) Integer idCliente,
+	        @RequestParam(required = false) List<Integer> produtos,
+	        @RequestParam(required = false) List<Integer> quantidades,
+	        @RequestParam(required = false) String nomeStatus,
+	        @RequestParam(required = false) String nomeFormaPagamento,
+	        @RequestParam(required = false) String observacao,
+	        @RequestParam(required = false, defaultValue = "false") Boolean atualizarDataHoraPedido,
+	        @RequestParam(required = false, defaultValue = "false") Boolean voltarStatusPendente,
 	        RedirectAttributes redirectAttributes) {
 
-	    Pedido pedido = pedidoService.buscarPorId(idPedido);
+	    Map<Integer, Integer> itens = null;
 
-	    // impede alterações em pedidos com brinde resgatado
-	    if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
-	        redirectAttributes.addFlashAttribute("mensagemAviso",
-	                "Este pedido possui um brinde resgatado e não pode ter itens excluídos.");
-	        return "redirect:/pedidos";
+	    if (produtos != null && quantidades != null) {
+	        itens = montarMapaItens(produtos, quantidades);
 	    }
 
-	    // verifica se a exclusão removerá o pedido inteiro
-	    if (itemPedidoService.contarItens(idPedido) <= 1
-	            && "Entregue".equalsIgnoreCase(pedido.getStatusPedido().getNomeStatus())) {
+	    Pedido pedidoAntes = pedidoService.buscarPorId(idPedido);
 
-	        fidelidadeApiClient.estornarPedido(idPedido);
+	    Integer idStatusAnterior = pedidoAntes.getStatusPedido().getIdStatus();
+	    String statusAnterior = pedidoAntes.getStatusPedido().getNomeStatus();
+
+	    // pedidos com brinde precisam da fidelidade para operações protegidas
+	    if (pedidoAntes.isPossuiBrinde()
+	            && "Cancelado".equalsIgnoreCase(nomeStatus)) {
+
+	        return cancelarPedidoComBrinde(idPedido, redirectAttributes);
 	    }
 
-	    pedidoService.excluirItemOuPedidoInteiro(idPedido, idProduto);
+	    Pedido pedidoAtualizado = pedidoService.editarPedidoCompleto(
+	            idPedido,
+	            idCliente,
+	            nomeStatus,
+	            nomeFormaPagamento,
+	            observacao,
+	            itens,
+	            Boolean.TRUE.equals(atualizarDataHoraPedido),
+	            Boolean.TRUE.equals(voltarStatusPendente));
+
+	    Integer idStatusNovo = pedidoAtualizado.getStatusPedido().getIdStatus();
+	    String statusNovo = pedidoAtualizado.getStatusPedido().getNomeStatus();
+
+	    boolean estavaEntregue =
+	            "Entregue".equalsIgnoreCase(statusAnterior);
+
+	    boolean ficouEntregue =
+	            "Entregue".equalsIgnoreCase(statusNovo);
+
+	    // estorna a fidelidade quando o pedido deixa de ser entregue
+	    if (estavaEntregue && !ficouEntregue) {
+	        try {
+	            fidelidadeApiClient.estornarPedido(idPedido);
+	        } catch (RestClientException e) {
+	            redirectAttributes.addFlashAttribute(
+	                    "mensagemAviso",
+	                    "Pedido atualizado, mas o estorno da fidelidade não foi realizado.");
+	        }
+	    }
+
+	    // contabiliza a fidelidade quando o pedido passa a ser entregue
+	    if (!estavaEntregue && ficouEntregue) {
+	        try {
+	            fidelidadeApiClient.notificarPedidoEntregue(
+	                    idPedido,
+	                    pedidoAtualizado.getCliente().getIdCliente());
+	        } catch (RestClientException e) {
+	            redirectAttributes.addFlashAttribute(
+	                    "mensagemAviso",
+	                    "Pedido atualizado, mas a contabilização da fidelidade não foi realizada.");
+	        }
+	    }
+
+	    // comunica a alteração de status
+	    if (!idStatusAnterior.equals(idStatusNovo)) {
+	        try {
+	            comunicacaoApiClient.notificarStatusPedido(
+	                    pedidoAtualizado.getIdPedido(),
+	                    pedidoAtualizado.getCliente().getIdCliente(),
+	                    idStatusNovo);
+	        } catch (RestClientException e) {
+	            redirectAttributes.addFlashAttribute(
+	                    "mensagemAviso",
+	                    "Pedido atualizado, mas não foi possível enviar a notificação.");
+	        }
+	    }
+
+	    redirectAttributes.addFlashAttribute(
+	            "sucesso",
+	            "Pedido atualizado com sucesso!");
 
 	    return "redirect:/pedidos";
 	}
 
-	// exclui o pedido e atualiza a fidelidade
+
+	// atualiza a quantidade de um item do pedido
+	@PostMapping("/item/atualizar")
+	public String atualizarItem(
+	        @RequestParam Integer idPedido,
+	        @RequestParam Integer idProduto,
+	        @RequestParam Integer quantidade,
+	        RedirectAttributes redirectAttributes) {
+
+	    try {
+
+	        pedidoService.atualizarQuantidadeItem(
+	                idPedido, idProduto, quantidade);
+
+	        redirectAttributes.addFlashAttribute(
+	                "sucesso",
+	                "Quantidade atualizada com sucesso!");
+
+	    } catch (Exception e) {
+
+	        redirectAttributes.addFlashAttribute(
+	                "mensagemAviso",
+	                e.getMessage());
+	    }
+
+	    return "redirect:/pedidos/editar/" + idPedido;
+	}
+
+	// remove um item do pedido
+	@PostMapping("/item/excluir")
+	public String excluirItemOuPedido(
+	        @RequestParam Integer idPedido,
+	        @RequestParam Integer idProduto,
+	        RedirectAttributes redirectAttributes) {
+
+	    try {
+
+	        pedidoService.excluirItemOuPedidoInteiro(idPedido, idProduto);
+
+	        redirectAttributes.addFlashAttribute(
+	                "sucesso",
+	                "Item removido com sucesso!");
+
+	    } catch (Exception e) {
+
+	        redirectAttributes.addFlashAttribute(
+	                "mensagemAviso",
+	                e.getMessage());
+	    }
+
+	    return "redirect:/pedidos";
+	}
+
+	// exclui pedidos comuns
 	@PostMapping("/excluir")
-	public String excluirPedido(@RequestParam Integer idPedido, RedirectAttributes redirectAttributes) {
+	public String excluirPedido(
+	        @RequestParam Integer idPedido,
+	        RedirectAttributes redirectAttributes) {
 
 	    Pedido pedido = pedidoService.buscarPorId(idPedido);
 
-	    // impede excluir um pedido com brinde resgatado
-	    if (fidelidadeApiClient.consultarResgatePedido(idPedido)) {
-	        redirectAttributes.addFlashAttribute("mensagemAviso",
+	    // pedidos com brinde não podem ser excluídos
+	    if (pedido.isPossuiBrinde()) {
+	        redirectAttributes.addFlashAttribute(
+	                "mensagemAviso",
 	                "Este pedido possui um brinde resgatado e não pode ser excluído.");
 
 	        return "redirect:/pedidos";
 	    }
 
-	    // estorna a estrela antes de excluir o pedido
-	    if ("Entregue".equalsIgnoreCase(pedido.getStatusPedido().getNomeStatus())) {
-	        fidelidadeApiClient.estornarPedido(idPedido);
+	    // estorna a estrela quando necessário
+	    if ("Entregue".equalsIgnoreCase(
+	            pedido.getStatusPedido().getNomeStatus())) {
+
+	        try {
+	            fidelidadeApiClient.estornarPedido(idPedido);
+	        } catch (RestClientException e) {
+	            redirectAttributes.addFlashAttribute(
+	                    "mensagemAviso",
+	                    "Pedido excluído, mas o estorno da fidelidade não foi realizado.");
+	        }
 	    }
 
 	    pedidoService.excluirPedidoInteiro(idPedido);
 
-	    redirectAttributes.addFlashAttribute("sucesso", "Pedido excluído com sucesso!");
+	    redirectAttributes.addFlashAttribute(
+	            "sucesso",
+	            "Pedido excluído com sucesso!");
 
 	    return "redirect:/pedidos";
 	}
+
 
 	// Realiza a busca de produtos para auxiliar no cadastro e edição dos pedidos.
 	@GetMapping("/produtos/buscar")
@@ -358,28 +468,14 @@ public class PedidoController {
 	}
 	
 	
-	// carrega os descontos registrados na fidelidade
+	// utiliza os descontos registrados localmente
 	private void carregarDescontosPedidos(List<Pedido> pedidos) {
 
 	    for (Pedido pedido : pedidos) {
-	        try {
-	        	if (fidelidadeApiClient.consultarResgatePedido(pedido.getIdPedido())) {
 
-	        	    BigDecimal desconto =
-	        	            fidelidadeApiClient.consultarDescontoPedido(
-	        	                    pedido.getIdPedido());
-
-	        	    Integer idProdutoBrinde =
-	        	            fidelidadeApiClient.consultarProdutoBrindePedido(
-	        	                    pedido.getIdPedido());
-
-	        	    pedido.setValorDesconto(
-	        	            desconto == null ? BigDecimal.ZERO : desconto);
-
-	        	    pedido.setIdProdutoBrinde(idProdutoBrinde);
-	        	}
-	        } catch (RestClientException e) {
-	            // mantém a tela disponível se a fidelidade falhar
+	        if (!pedido.isPossuiBrinde()) {
+	            pedido.setValorDesconto(BigDecimal.ZERO);
+	            pedido.setIdProdutoBrinde(null);
 	        }
 	    }
 	}
@@ -504,18 +600,41 @@ public class PedidoController {
 
 	        // permite concluir uma devolução pendente
 	        fidelidadeApiClient.devolverBrinde(idPedido);
+	        
+	     // notifica o cancelamento do pedido
+	        try {
+	            comunicacaoApiClient.notificarStatusPedido(
+	                    pedido.getIdPedido(),
+	                    pedido.getCliente().getIdCliente(),
+	                    pedido.getStatusPedido().getIdStatus());
+
+	        } catch (RestClientException e) {
+
+	            redirectAttributes.addFlashAttribute(
+	                    "mensagemAviso",
+	                    "Pedido cancelado e brinde devolvido, mas a notificação não foi enviada.");
+	        }
 
 	        redirectAttributes.addFlashAttribute(
 	                "sucesso",
 	                "Pedido cancelado e brinde devolvido com sucesso.");
 
-	    } catch (Exception e) {
+	    } catch (RestClientException e) {
 
-	        redirectAttributes.addFlashAttribute(
-	                "mensagemAviso",
-	                "Cancelamento não concluído: " + e.getMessage()
-	                + " Verifique o estado do pedido antes de tentar novamente.");
-	    }
+        // informa a indisponibilidade da fidelidade
+        redirectAttributes.addFlashAttribute("mensagemAviso",
+                "Não foi possível concluir o cancelamento. "
+                + "A operação só pode ser realizada quando a conexão "
+                + "com o microsserviço de Fidelidade for restabelecida. "
+                + "Verifique o estado do pedido antes de tentar novamente.");
+
+    } catch (Exception e) {
+
+        redirectAttributes.addFlashAttribute("mensagemAviso",
+                "Cancelamento não concluído: " + e.getMessage()
+                + " Verifique o estado do pedido antes de tentar novamente.");
+    }
+
 
 	    return "redirect:/pedidos";
 	}

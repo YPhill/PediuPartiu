@@ -47,15 +47,17 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
             @Param("status") String status,
             @Param("data") String data);
     
-    //Calcula o faturamento obtido dentro do período informado.
+ // calcula o faturamento apenas dos pedidos entregues
     @Query("""
-    	    SELECT SUM(i.quantidade * i.produto.precoUnitario)
-    	    FROM ItemPedido i
-    	    WHERE i.pedido.dataHoraPedido BETWEEN :inicio AND :fim
-    	""")
-    	Double calcularFaturamentoEntre(
-    	        @Param("inicio") LocalDateTime inicio,
-    	        @Param("fim") LocalDateTime fim);
+        SELECT SUM(i.quantidade * i.produto.precoUnitario)
+        FROM ItemPedido i
+        WHERE i.pedido.dataHoraPedido >= :inicio
+          AND i.pedido.dataHoraPedido < :fim
+          AND i.pedido.statusPedido.nomeStatus = 'Entregue'
+    """)
+    Double calcularFaturamentoEntre(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim);
 
     //Retorna as formas de pagamento mais utilizadas em um determinado período.
     	@Query("""
